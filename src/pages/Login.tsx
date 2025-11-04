@@ -67,7 +67,7 @@ export function Login() {
             {isLoading ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
-        <div className="mt-4 text-xs text-gray-400 text-right">v1.0</div>
+        <div className="mt-4 text-xs text-gray-400 text-right">v1.2</div>
       </div>
     </div>
   );
