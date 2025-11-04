@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.gitignore
+.trae
+**/*.log
+pnpm-store
+Dockerfile
+docker-compose.yml
+vercel.json
+README.md
+*.md
