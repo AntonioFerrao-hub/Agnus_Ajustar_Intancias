@@ -26,7 +26,7 @@ export function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-      <div className="bg-white w-full max-w-md rounded-lg shadow p-6">
+      <div className="bg-white w-full max-w-md rounded-lg shadow p-6" data-version="v1.0">
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Entrar</h2>
         <p className="text-gray-600 mb-6">Acesse o WhatsApp Manager</p>
 
@@ -67,6 +67,7 @@ export function Login() {
             {isLoading ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
+        <div className="mt-4 text-xs text-gray-400 text-right">v1.0</div>
       </div>
     </div>
   );
