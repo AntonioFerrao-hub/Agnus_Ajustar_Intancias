@@ -8,6 +8,7 @@ import { Logs } from './pages/Logs';
 import { Monitoring } from './pages/Monitoring';
 import { Settings } from './pages/Settings';
 import { Login } from './pages/Login';
+import Unauthorized from './pages/Unauthorized';
 import { authService } from './services/authService';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
@@ -27,7 +28,8 @@ function RequirePermission({ perm, children }: { perm: string; children: JSX.Ele
     return children;
   }
   if (perms.includes(perm)) return children;
-  return <Navigate to="/dashboard" replace />;
+  // Redireciona para página segura sem loop
+  return <Navigate to="/unauthorized" replace />;
 }
 
 function App() {
@@ -44,6 +46,7 @@ function App() {
           <Route path="logs" element={<RequirePermission perm="logs"><Logs /></RequirePermission>} />
           <Route path="monitoring" element={<RequirePermission perm="monitoring"><Monitoring /></RequirePermission>} />
           <Route path="settings" element={<RequirePermission perm="settings"><Settings /></RequirePermission>} />
+          <Route path="unauthorized" element={<Unauthorized />} />
         </Route>
       </Routes>
     </Router>
