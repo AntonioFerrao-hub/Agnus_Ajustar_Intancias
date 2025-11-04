@@ -5,33 +5,12 @@ services:
     build: .
     image: agnus-app:latest
     container_name: agnus-web
+    restart: unless-stopped
     ports:
       - "3000:3000"
+    # Variáveis de ambiente para banco externo
     environment:
       NODE_ENV: production
       PORT: 3000
-      # Ajuste as variáveis conforme seu ambiente
-      DB_HOST: db
-      DB_USER: agnus
-      DB_PASSWORD: agnus_pw
-      DB_DATABASE: agnus_db
-      JWT_SECRET: change-me-in-prod
-    depends_on:
-      - db
-
-  db:
-    image: mysql:8.0
-    container_name: agnus-db
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: agnus_db
-      MYSQL_USER: agnus
-      MYSQL_PASSWORD: agnus_pw
-      MYSQL_ROOT_PASSWORD: root_pw
-    ports:
-      - "3306:3306"
-    volumes:
-      - db_data:/var/lib/mysql
-
-volumes:
-  db_data:
+    env_file:
+      - .env
