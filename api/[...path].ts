@@ -1,16 +1,10 @@
-import serverless from 'serverless-http';
-// Importa o app Express do backend (CommonJS). Node ESM fornece default synthético.
-// Caminho relativo ao raiz do projeto.
+// Importa o app Express do backend (CommonJS). Node ESM fornece default sintético.
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import app from '../backend/index.js';
 
-const handler = serverless(app as any);
-
-export default async function(req: any, res: any) {
-  // Delega para o wrapper serverless do Express
-  // Em Vercel, a função em /api/[...path] recebe req.url sem o prefixo "/api".
-  // O app Express está montado em "/api/*". Prefixamos para casar as rotas.
+export default function handler(req: any, res: any) {
+  // Normaliza path para casar com as rotas montadas em "/api/*"
   try {
     const url = req?.url || '';
     if (url && !url.startsWith('/api')) {
@@ -21,5 +15,5 @@ export default async function(req: any, res: any) {
       req.originalUrl = originalUrl.startsWith('/') ? `/api${originalUrl}` : `/api/${originalUrl}`;
     }
   } catch {}
-  return handler(req as any, res as any);
+  return (app as any)(req, res);
 }
