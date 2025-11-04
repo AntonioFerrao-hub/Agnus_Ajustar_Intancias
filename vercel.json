@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "buildCommand": "pnpm run build",
+  "outputDirectory": "dist",
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/(.*)" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
+}

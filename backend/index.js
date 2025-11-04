@@ -26,6 +26,12 @@ app.get('/', (req, res) => {
   res.send('Backend do Agnus está rodando!');
 });
 
-app.listen(port, () => {
-  console.log(`Servidor rodando na porta ${port}`);
-});
+// Inicia servidor apenas quando executado diretamente (ambiente local)
+if (require.main === module) {
+  app.listen(port, () => {
+    console.log(`Servidor rodando na porta ${port}`);
+  });
+}
+
+// Exporta o app para uso em funções serverless (Vercel)
+module.exports = app;
