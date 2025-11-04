@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+
+    <audio id="soundConnecting" src="https://cdn.pixabay.com/audio/2022/03/15/audio_115b9fd65c.mp3"></audio>
+
+
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard WhatsApp - Agnus Consig</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        }
+
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .status-connected {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .status-disconnected {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+
+        .modal-backdrop {
+            backdrop-filter: blur(8px);
+        }
+
+        .qr-code-modal {
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9) translateY(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .status-connecting {
+            background: linear-gradient(135deg, #facc15, #eab308);
+            color: #92400e !important;
+        }
+
+        .filter-button.active {
+            background-color: #3b82f6;
+            /* Tailwind blue-500 */
+            color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-disconnect-all:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background-color: #ef4444;
+        }
+    </style>
+</head>
+
+<body class="gradient-bg min-h-screen">
+
+
+    <div id="alertConnecting"
+        class="fixed top-6 left-1/2 z-50 -translate-x-1/2 bg-yellow-100 border border-yellow-300 shadow-lg rounded-full px-6 py-3 flex items-center gap-3 text-yellow-900 font-semibold text-base animate-bounce transition hidden">
+        <i class="fas fa-bell fa-shake text-yellow-500 text-2xl"></i>
+        <span>Há instâncias em processo de conexão...</span>
+    </div>
+
+
+
+    <div class="min-h-screen p-6">
+        <div class="bg-gradient-to-r from-blue-50 to-sky-50 rounded-2xl shadow-sm border border-blue-100 p-6 mb-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800 mb-1">
+                        <i class="fab fa-whatsapp text-green-500 mr-3"></i>
+                        Dashboard WhatsApp
+                    </h1>
+                    <p class="text-gray-500 text-sm">Monitoramento de Instâncias</p>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button onclick="loadInstances()"
+                        class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition duration-200 flex items-center">
+                        <i class="fas fa-sync-alt mr-2"></i>Atualizar
+                    </button>
+                    <div class="text-right">
+                        <p class="text-gray-400 text-xs">Atualizado às</p>
+                        <p id="lastUpdate" class="text-gray-700 font-medium text-sm"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div
+                class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-sm border border-blue-200 p-6 text-center">
+                <div class="w-12 h-12 bg-blue-200 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-server text-blue-700 text-xl"></i>
+                </div>
+                <h3 class="text-blue-700 text-sm font-medium">Servidores</h3>
+                <p id="serverCount" class="text-2xl font-bold text-blue-800">0</p>
+            </div>
+
+            <div
+                class="bg-gradient-to-br from-sky-50 to-cyan-50 rounded-xl shadow-sm border border-sky-200 p-6 text-center">
+                <div class="w-12 h-12 bg-sky-200 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-mobile-alt text-sky-700 text-xl"></i>
+                </div>
+                <h3 class="text-sky-700 text-sm font-medium">Instâncias</h3>
+                <p id="instanceCount" class="text-2xl font-bold text-sky-800">0</p>
+            </div>
+
+            <div
+                class="bg-gradient-to-br from-teal-50 to-emerald-50 rounded-xl shadow-sm border border-teal-200 p-6 text-center">
+                <div class="w-12 h-12 bg-teal-200 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-check-circle text-teal-700 text-xl"></i>
+                </div>
+                <h3 class="text-teal-700 text-sm font-medium">Conectadas</h3>
+                <p id="activeCount" class="text-2xl font-bold text-teal-800">0</p>
+            </div>
+
+            <div
+                class="bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl shadow-sm border border-slate-300 p-6 text-center">
+                <div class="w-12 h-12 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-times-circle text-slate-600 text-xl"></i>
+                </div>
+                <h3 class="text-slate-600 text-sm font-medium">Desconectadas</h3>
+                <p id="inactiveCount" class="text-2xl font-bold text-slate-700">0</p>
+            </div>
+        </div>
+
+        <div id="loading" class="text-center py-8">
+            <div class="inline-flex items-center px-4 py-2 bg-blue-50 rounded-lg shadow-sm border border-blue-200">
+                <i class="fas fa-spinner fa-spin text-blue-600 mr-3"></i>
+                <span class="text-blue-700">Carregando instâncias...</span>
+            </div>
+        </div>
+
+        <div class="flex justify-center space-x-4 mb-6">
+            <button id="filterAll" onclick="applyFilter('all')"
+                class="filter-button bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition duration-200 active">Todos</button>
+            <button id="filterConnected" onclick="applyFilter('connected')"
+                class="filter-button bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition duration-200">Conectadas</button>
+            <button id="filterConnecting" onclick="applyFilter('connecting')"
+                class="filter-button bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition duration-200">Conectando</button>
+            <button id="filterDisconnected" onclick="applyFilter('disconnected')"
+                class="filter-button bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition duration-200">Desconectadas</button>
+            <button id="disconnectAllBtn" onclick="disconnectAllConnectingInstances()"
+                class="btn-disconnect-all bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                disabled>Desconectar todos (Conectando)</button>
+        </div>
+
+        <div id="instancesContainer" class="space-y-6"></div>
+    </div>
+
+    <div id="qrModal"
+        class="fixed inset-0 bg-black bg-opacity-50 modal-backdrop hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full qr-code-modal">
+            <div class="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-6 rounded-t-2xl">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <i class="fab fa-whatsapp text-2xl mr-3"></i>
+                        <div>
+                            <h2 class="text-xl font-bold">Conectar WhatsApp</h2>
+                            <p id="modalInstanceName" class="text-green-100 text-sm"></p>
+                        </div>
+                    </div>
+                    <button onclick="closeQRModal()" class="text-white hover:text-gray-200 transition">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-6">
+                <div class="text-center mb-6">
+                    <div id="qrContainer"
+                        class="bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-6 min-h-[280px] flex items-center justify-center">
+                        <div id="qrPlaceholder" class="text-gray-500">
+                            <i class="fas fa-qrcode text-4xl mb-3"></i>
+                            <p>Clique em "Gerar QR Code" para começar</p>
+                        </div>
+                        <img id="qrImage" alt="QR Code WhatsApp"
+                            class="max-w-[240px] max-h-[240px] rounded-lg shadow-lg hidden">
+                        <div id="qrLoading" class="hidden flex-col items-center">
+                            <div class="loading-spinner mb-4"></div>
+                            <p class="text-gray-600">Gerando QR Code...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex space-x-3">
+                    <button id="generateQRBtn" onclick="generateQRCode()"
+                        class="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded-lg font-medium transition flex items-center justify-center">
+                        <i class="fas fa-qrcode mr-2"></i>
+                        Gerar QR Code
+                    </button>
+                    <button onclick="closeQRModal()"
+                        class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-lg font-medium transition">
+                        Fechar
+                    </button>
+                </div>
+
+                <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div class="flex items-start">
+                        <i class="fas fa-info-circle text-blue-500 mt-1 mr-3"></i>
+                        <div class="text-sm text-blue-800">
+                            <p class="font-medium mb-1">Como conectar:</p>
+                            <ol class="list-decimal list-inside space-y-1 text-blue-700">
+                                <li>Abra o WhatsApp no seu celular</li>
+                                <li>Toque em "Mais opções" ou "⋮"</li>
+                                <li>Toque em "Aparelhos conectados"</li>
+                                <li>Toque em "Conectar um aparelho"</li>
+                                <li>Escaneie o QR code acima</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="qrLog"
+                    class="mt-4 bg-gray-900 text-gray-100 rounded-lg p-4 font-mono text-sm max-h-32 overflow-y-auto hidden">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configurações de segurança (APIs criptografadas)
+        const CONFIG = {
+            servers: [
+
+                {
+                    name: 'Servidor Evo 02',
+                    url: 'https://wp2.agnusconsig.com.br/',
+                    apikey: '9e2fc37cb166000b4b48cbd55e78b84d'
+                },
+                {
+                    name: 'Servidor EVO 03',
+                    url: 'https://wp3.agnusconsig.com.br/',
+                    apikey: '305d696103fcd8a923fe56663894dc79'
+                }
+            ]
+        };
+
+        let updateInterval;
+        let instancesData = {};
+        let currentInstance = null;
+        let currentFilter = 'all'; // New: Default filter
+
+        // Função para fazer logout da instância
+        async function logoutInstance(serverUrl, apikey, instanceName) {
+            if (confirm(`Tem certeza que deseja desconectar a instância "${instanceName}"?`)) {
+                try {
+                    const response = await fetch(`${serverUrl}instance/logout/${instanceName}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'apikey': apikey,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (response.ok) {
+                        alert(`Instância "${instanceName}" desconectada com sucesso!`);
+                        loadInstances(); // Atualiza o dashboard após o logout
+                    } else {
+                        const errorData = await response.json();
+                        alert(`Erro ao desconectar a instância "${instanceName}": ${errorData.message}`);
+                    }
+                } catch (error) {
+                    alert(`Erro de rede ao desconectar a instância "${instanceName}": ${error.message}`);
+                }
+            }
+        }
+
+        // NOVO: Função para desconectar todas as instâncias com status 'Conectando'
+        async function disconnectAllConnectingInstances() {
+            if (!confirm('Tem certeza que deseja desconectar TODAS as instâncias com o status "Conectando"?')) {
+                return;
+            }
+
+            let instancesToDisconnect = [];
+            Object.values(instancesData).forEach(serverData => {
+                if (serverData.success && serverData.instances) {
+                    serverData.instances.forEach(instance => {
+                        const status = instance.connectionStatus || instance.status;
+                        if (status === 'connecting') {
+                            instancesToDisconnect.push({
+                                serverUrl: serverData.serverUrl,
+                                apikey: serverData.apikey,
+                                instanceName: instance.name
+                            });
+                        }
+                    });
+                }
+            });
+
+            if (instancesToDisconnect.length === 0) {
+                alert('Nenhuma instância com status "Conectando" foi encontrada.');
+                return;
+            }
+
+            for (const instance of instancesToDisconnect) {
+                try {
+                    const response = await fetch(`${instance.serverUrl}instance/logout/${instance.instanceName}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'apikey': instance.apikey,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (response.ok) {
+                        console.log(`Instância "${instance.instanceName}" desconectada com sucesso.`);
+                    } else {
+                        const errorData = await response.json();
+                        console.error(`Erro ao desconectar a instância "${instance.instanceName}": ${errorData.message}`);
+                    }
+                } catch (error) {
+                    console.error(`Erro de rede ao desconectar a instância "${instance.instanceName}": ${error.message}`);
+                }
+            }
+
+            alert(`Tentativa de desconectar ${instancesToDisconnect.length} instâncias concluída. A página será atualizada.`);
+            loadInstances();
+        }
+
+        // Buscar instâncias de um servidor
+        async function fetchInstancesFromServer(server) {
+            try {
+                console.log(`Conectando ao servidor: ${server.name}`);
+
+                let response;
+                let data;
+
+                // Método direto
+                try {
+                    response = await fetch(`${server.url}instance/fetchInstances`, {
+                        method: 'GET',
+                        mode: 'cors',
+                        headers: {
+                            'apikey': server.apikey,
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (response.ok) {
+                        data = await response.json();
+                        let instances = Array.isArray(data) ? data : [data];
+
+                        return {
+                            server: server.name,
+                            serverUrl: server.url,
+                            apikey: server.apikey,
+                            instances: instances,
+                            success: true,
+                            rawData: data
+                        };
+                    }
+                } catch (error) {
+                    console.log(`Erro direto: ${error.message}`);
+                }
+
+                throw new Error('Falha na conexão');
+
+            } catch (error) {
+                console.error(`Erro ao buscar instâncias do ${server.name}:`, error);
+
+                return {
+                    server: server.name,
+                    serverUrl: server.url,
+                    apikey: server.apikey,
+                    instances: [],
+                    success: false,
+                    error: error.message
+                };
+            }
+        }
+
+        // Carregar todas as instâncias
+        async function loadInstances() {
+            document.getElementById('loading').classList.remove('hidden');
+
+            const promises = CONFIG.servers.map(server => fetchInstancesFromServer(server));
+            const results = await Promise.allSettled(promises);
+
+            instancesData = {};
+            results.forEach((result, index) => {
+                const serverName = CONFIG.servers[index].name;
+                if (result.status === 'fulfilled') {
+                    instancesData[serverName] = result.value;
+                } else {
+                    instancesData[serverName] = {
+                        server: serverName,
+                        serverUrl: CONFIG.servers[index].url,
+                        apikey: CONFIG.servers[index].apikey,
+                        instances: [],
+                        success: false,
+                        error: result.reason.message || 'Erro desconhecido'
+                    };
+                }
+            });
+
+            renderInstances(); // Call renderInstances after loading data
+            updateStats();
+            updateLastUpdateTime();
+
+            document.getElementById('loading').classList.add('hidden');
+        }
+
+        // Renderizar instâncias
+        function renderInstances() {
+            const container = document.getElementById('instancesContainer');
+            container.innerHTML = '';
+
+            let hasConnectingInstances = false;
+
+            Object.values(instancesData).forEach(serverData => {
+                const serverDiv = document.createElement('div');
+                serverDiv.className =
+                    'bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl shadow-sm border border-blue-200 p-6';
+
+                let instancesHtml = '';
+
+                if (!serverData.success) {
+                    instancesHtml = `
+                        <div class="bg-gradient-to-br from-red-50 to-pink-50 border border-red-200 rounded-xl p-6 text-center">
+                            <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-exclamation-triangle text-red-500 text-2xl"></i>
+                            </div>
+                            <h3 class="text-red-800 font-semibold mb-2">Servidor Offline</h3>
+                            <p class="text-red-600 text-sm">${serverData.error}</p>
+                        </div>
+                    `;
+                } else if (serverData.instances.length === 0) {
+                    instancesHtml = `
+                        <div class="bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-xl p-6 text-center">
+                            <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-info-circle text-yellow-500 text-2xl"></i>
+                            </div>
+                            <h3 class="text-yellow-800 font-semibold mb-2">Nenhuma Instância</h3>
+                            <p class="text-yellow-600 text-sm">Não foram encontradas instâncias ativas</p>
+                        </div>
+                    `;
+                } else {
+                    const filteredInstances = serverData.instances.filter(instance => {
+                        const status = instance.connectionStatus || instance.status;
+                        const isConnected = status === 'open' || status === 'connected';
+                        const isConnecting = status === 'connecting';
+                        if (isConnecting) {
+                            hasConnectingInstances = true;
+                        }
+
+                        if (currentFilter === 'all') {
+                            return true;
+                        } else if (currentFilter === 'connected') {
+                            return isConnected;
+                        } else if (currentFilter === 'disconnected') {
+                            return !isConnected && !isConnecting; // Disconnected means not connected and not connecting
+                        } else if (currentFilter === 'connecting') {
+                            return isConnecting;
+                        }
+                        return false;
+                    });
+
+
+                    instancesHtml = filteredInstances.map(instance => {
+                        // Processar dados da instância
+                        const instanceName = instance.name || 'Sem nome';
+                        const status = instance.connectionStatus || instance.status;
+
+                        // Extrair número do ownerJid ou instanceName
+                        let phoneNumber = 'N/A';
+                        if (instance.ownerJid) {
+                            const match = instance.ownerJid.match(/(\d+)@/);
+                            if (match) {
+                                phoneNumber = '+' + match[1];
+                            }
+                        } else if (instanceName) {
+                            const nameMatch = instanceName.match(/(\d{10,15})/);
+                            if (nameMatch) {
+                                phoneNumber = '+' + nameMatch[1];
+                            }
+                        }
+
+                        // Determinar status visual
+                        let statusClass, statusText, statusColor;
+                        let cardBgClass, cardBorderClass, cardTextClass, cardNumberClass;
+                        let isConnected = status === 'open' || status === 'connected';
+                        let isConnecting = status === 'connecting';
+
+                        if (isConnected) {
+                            statusClass = 'status-connected';
+                            statusText = 'Conectada';
+                            statusColor = 'text-green-700';
+                            cardBgClass = 'bg-gradient-to-br from-green-50 to-emerald-50';
+                            cardBorderClass = 'border-green-200';
+                            cardTextClass = 'text-green-900';
+                            cardNumberClass = 'text-green-700';
+                        } else if (isConnecting) {
+                            // --- NOVO: STATUS "Conectando" ---
+                            statusClass = 'status-connecting';
+                            statusText = 'Conectando';
+                            statusColor = 'text-yellow-700';
+                            cardBgClass = 'bg-gradient-to-br from-yellow-50 to-yellow-100';
+                            cardBorderClass = 'border-yellow-200';
+                            cardTextClass = 'text-yellow-900';
+                            cardNumberClass = 'text-yellow-700';
+                        } else {
+                            statusClass = 'status-disconnected';
+                            statusText = 'Desconectada';
+                            statusColor = 'text-red-700';
+                            cardBgClass = 'bg-gradient-to-br from-red-50 to-pink-50';
+                            cardBorderClass = 'border-red-200';
+                            cardTextClass = 'text-red-900';
+                            cardNumberClass = 'text-red-700';
+                        }
+
+                        // Botões de ação para instâncias
+                        let actionButtons = '';
+                        if (isConnecting) {
+                            actionButtons = `
+                            <button onclick="logoutInstance('${serverData.serverUrl}', '${serverData.apikey}', '${instanceName}')"
+                                    class="mt-3 w-full bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition flex items-center justify-center">
+                                <i class="fas fa-times-circle mr-2"></i>
+                                Desconectar
+                            </button>
+                        `;
+                        } else if (!isConnected) { // Instâncias desconectadas (e não conectando)
+                            const instanceIndex = serverData.instances.indexOf(instance);
+                            actionButtons = `
+                            <button onclick="openQRModal('${serverData.server}', '${instanceName}', '${serverData.serverUrl}', '${serverData.apikey}', '${phoneNumber}', ${instanceIndex})"
+                                    class="mt-3 w-full bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition flex items-center justify-center">
+                                <i class="fas fa-qrcode mr-2"></i>
+                                Gerar QR Code
+                            </button>
+                        `;
+                        }
+
+                        return `
+                        <div class="${cardBgClass} rounded-xl p-4 card-hover border ${cardBorderClass}">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex-1">
+                                    <h4 class="text-lg font-semibold ${cardTextClass} mb-1">${instanceName}</h4>
+                                    <p class="${cardNumberClass} text-sm font-medium">${phoneNumber}</p>
+                                </div>
+                                <div class="flex items-center">
+                                    <span class="${statusClass} text-white px-3 py-1 rounded-full text-sm font-medium shadow-sm">
+                                        ${statusText}
+                                    </span>
+                                </div>
+                            </div>
+                            ${actionButtons}
+                        </div>
+                    `;
+                    }).join('');
+                }
+
+                serverDiv.innerHTML = `
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-blue-200 rounded-full flex items-center justify-center mr-4">
+                                <i class="fas fa-server text-blue-700 text-xl"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-xl font-bold text-blue-900">${serverData.server}</h2>
+                                <p class="text-blue-600 text-sm font-medium">${serverData.success ? serverData.instances.length : 0} instância(s)</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-3 h-3 rounded-full ${serverData.success ? 'bg-green-400' : 'bg-red-400'}"></div>
+                            <span class="text-sm font-medium ${serverData.success ? 'text-green-600' : 'text-red-600'}">
+                                ${serverData.success ? 'Online' : 'Offline'}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        ${instancesHtml}
+                    </div>
+                `;
+
+                container.appendChild(serverDiv);
+            });
+
+            // Gerenciar estado do botão de desconexão em lote
+            const disconnectAllBtn = document.getElementById('disconnectAllBtn');
+            if (disconnectAllBtn) {
+                disconnectAllBtn.disabled = !hasConnectingInstances;
+            }
+
+
+            // --- ALERTA SE CONECTANDO ---
+            let isAnyConnecting = false;
+            Object.values(instancesData).forEach(serverData => {
+                if (serverData.success && serverData.instances) {
+                    serverData.instances.forEach(instance => {
+                        const status = instance.connectionStatus || instance.status;
+                        if (status === 'connecting') {
+                            isAnyConnecting = true;
+                        }
+                    });
+                }
+            });
+
+            const alertDiv = document.getElementById('alertConnecting');
+            const audio = document.getElementById('soundConnecting');
+            if (isAnyConnecting) {
+                alertDiv.classList.remove('hidden');
+                // Toca o som só se ainda não está tocando
+                if (audio && audio.paused) {
+                    audio.play().catch(() => {});
+                }
+            } else {
+                alertDiv.classList.add('hidden');
+                if (audio) {
+                    audio.pause();
+                    audio.currentTime = 0;
+                }
+            }
+        }
+
+
+        // New: Function to apply filter
+        function applyFilter(filterType) {
+            currentFilter = filterType;
+            // Update active state of buttons
+            document.querySelectorAll('.filter-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            document.getElementById('filter' + filterType.charAt(0).toUpperCase() + filterType.slice(1)).classList.add('active');
+            renderInstances();
+        }
+
+
+        // Atualizar estatísticas
+        function updateStats() {
+            let totalInstances = 0;
+            let activeInstances = 0;
+            let inactiveInstances = 0;
+            let totalServers = Object.keys(instancesData).length;
+
+            Object.values(instancesData).forEach(serverData => {
+                if (serverData.success && serverData.instances) {
+                    totalInstances += serverData.instances.length;
+
+                    serverData.instances.forEach(instance => {
+                        const status = instance.connectionStatus || instance.status;
+                        if (status === 'open' || status === 'connected') {
+                            activeInstances++;
+                        } else {
+                            inactiveInstances++;
+                        }
+                    });
+                }
+            });
+
+            document.getElementById('serverCount').textContent = totalServers;
+            document.getElementById('instanceCount').textContent = totalInstances;
+            document.getElementById('activeCount').textContent = activeInstances;
+            document.getElementById('inactiveCount').textContent = inactiveInstances;
+        }
+
+        // Atualizar horário da última atualização
+        function updateLastUpdateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('pt-BR', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            document.getElementById('lastUpdate').textContent = timeString;
+        }
+
+        // Abrir modal QR Code
+        function openQRModal(serverName, instanceName, serverUrl, apikey, phoneNumber, instanceIndex = null) {
+            let instanceData = null;
+
+            // Buscar dados da instância pelo índice
+            if (instanceIndex !== null && instancesData[serverName] && instancesData[serverName].instances) {
+                instanceData = instancesData[serverName].instances[instanceIndex];
+            }
+
+            currentInstance = {
+                serverName,
+                instanceName,
+                serverUrl,
+                apikey,
+                phoneNumber,
+                rawData: instanceData
+            };
+
+            document.getElementById('modalInstanceName').textContent = `${instanceName} (${phoneNumber})`;
+            document.getElementById('qrModal').classList.remove('hidden');
+
+            // Reset modal state
+            resetQRModal();
+        }
+
+        // Fechar modal QR Code
+        function closeQRModal() {
+            document.getElementById('qrModal').classList.add('hidden');
+            currentInstance = null;
+        }
+
+        // Reset modal state
+        function resetQRModal() {
+            document.getElementById('qrPlaceholder').classList.remove('hidden');
+            document.getElementById('qrImage').classList.add('hidden');
+            document.getElementById('qrLoading').classList.add('hidden');
+            document.getElementById('qrLog').classList.add('hidden');
+            document.getElementById('qrImage').src = '';
+            document.getElementById('qrLog').innerHTML = '';
+            document.getElementById('generateQRBtn').disabled = false;
+            document.getElementById('generateQRBtn').innerHTML = '<i class="fas fa-qrcode mr-2"></i>Gerar QR Code';
+        }
+
+        // Log function for QR modal
+        function qrLog(msg, type = 'info') {
+            const logEl = document.getElementById('qrLog');
+            logEl.classList.remove('hidden');
+
+            const timestamp = new Date().toLocaleTimeString('pt-BR');
+            const colors = {
+                info: 'text-blue-300',
+                success: 'text-green-300',
+                error: 'text-red-300',
+                warning: 'text-yellow-300'
+            };
+
+            const logEntry = document.createElement('div');
+            logEntry.className = `${colors[type]} mb-1`;
+            logEntry.textContent = `[${timestamp}] ${msg}`;
+            logEl.appendChild(logEntry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        // Gerar QR Code
+        async function generateQRCode() {
+            if (!currentInstance) return;
+
+            const button = document.getElementById('generateQRBtn');
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Gerando...';
+
+            document.getElementById('qrPlaceholder').classList.add('hidden');
+            document.getElementById('qrLoading').classList.remove('hidden');
+            document.getElementById('qrImage').classList.add('hidden');
+
+            try {
+                qrLog('🚀 Iniciando geração do QR Code...', 'info');
+                qrLog(`📡 Conectando ao servidor: ${currentInstance.serverName}`, 'info');
+                qrLog(`📋 Instância: ${currentInstance.instanceName}`, 'info');
+
+                // Construir URL da API - Versão melhorada
+                let connectUrl = `${currentInstance.serverUrl}instance/connect/${currentInstance.instanceName}`;
+
+                // Tentativas diferentes para obter o número
+                let phoneToUse = null;
+
+                if (currentInstance.phoneNumber !== 'N/A') {
+                    phoneToUse = currentInstance.phoneNumber.replace('+', '');
+                    qrLog(`📞 Usando número do display: ${phoneToUse}`, 'info');
+                } else if (currentInstance.rawData && currentInstance.rawData.ownerJid) {
+                    const match = currentInstance.rawData.ownerJid.match(/(\d+)@/);
+                    if (match) {
+                        phoneToUse = match[1];
+                        qrLog(`📞 Extraído do ownerJid: ${phoneToUse}`, 'info');
+                    }
+                } else if (currentInstance.instanceName) {
+                    // Extrair número do nome da instância se possível
+                    const nameMatch = currentInstance.instanceName.match(/(\d{10,15})/);
+                    if (nameMatch) {
+                        phoneToUse = nameMatch[1];
+                        qrLog(`📞 Extraído do nome da instância: ${phoneToUse}`, 'info');
+                    }
+                }
+
+                if (phoneToUse) {
+                    connectUrl += `?number=${phoneToUse}`;
+                } else {
+                    qrLog('⚠️ Número não identificado, tentando sem parâmetro', 'warning');
+                }
+
+                qrLog(`🔗 URL final: ${connectUrl}`, 'info');
+
+                const response = await fetch(connectUrl, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': currentInstance.apikey,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                qrLog(`✅ Resposta: ${response.status} ${response.statusText}`,
+                    response.ok ? 'success' : 'error');
+
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
+                }
+
+                const text = await response.text();
+                qrLog(`📄 Dados recebidos (${text.length} caracteres)`, 'success');
+
+                let data;
+                try {
+                    data = JSON.parse(text);
+                    qrLog('✅ JSON processado com sucesso', 'success');
+                } catch (e) {
+                    qrLog('❌ Erro ao processar JSON: ' + e.message, 'error');
+                    throw new Error('Resposta inválida da API');
+                }
+
+                // Tentar diferentes campos para a imagem
+                let imageSource = null;
+                if (data.base64) {
+                    qrLog('🖼️ Usando campo "base64"', 'info');
+                    imageSource = data.base64;
+                } else if (data.code) {
+                    qrLog('🖼️ Usando campo "code" como base64', 'warning');
+                    imageSource = 'data:image/png;base64,' + data.code;
+                } else {
+                    qrLog('❌ Nenhum campo de imagem encontrado', 'error');
+                    throw new Error('QR Code não encontrado na resposta');
+                }
+
+                qrLog('🎨 Carregando imagem do QR Code...', 'info');
+
+                const qrImage = document.getElementById('qrImage');
+                qrImage.onload = () => {
+                    qrLog('✅ QR Code carregado com sucesso!', 'success');
+                    qrLog('📱 Escaneie o QR Code com seu WhatsApp', 'success');
+
+                    document.getElementById('qrLoading').classList.add('hidden');
+                    qrImage.classList.remove('hidden');
+                };
+
+                qrImage.onerror = () => {
+                    qrLog('❌ Falha ao carregar QR Code', 'error');
+                    document.getElementById('qrLoading').classList.add('hidden');
+                    document.getElementById('qrPlaceholder').classList.remove('hidden');
+                    document.getElementById('qrPlaceholder').innerHTML =
+                        '<i class="fas fa-times-circle text-4xl mb-3 text-red-500"></i><p class="text-red-500">Erro ao carregar QR Code</p>';
+                    throw new Error('Imagem do QR Code inválida');
+                };
+
+                qrImage.src = imageSource;
+
+            } catch (err) {
+                console.error('Erro completo:', err);
+                qrLog('❌ ' + err.message, 'error');
+
+                document.getElementById('qrLoading').classList.add('hidden');
+                document.getElementById('qrPlaceholder').classList.remove('hidden');
+                document.getElementById('qrPlaceholder').innerHTML =
+                    '<i class="fas fa-times-circle text-4xl mb-3 text-red-500"></i><p class="text-red-500">Erro ao gerar QR Code</p>';
+
+            } finally {
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-qrcode mr-2"></i>Gerar QR Code';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Fechar modal ao clicar fora
+            document.getElementById('qrModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeQRModal();
+                }
+            });
+
+            // Tecla ESC para fechar modal
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && !document.getElementById('qrModal').classList.contains('hidden')) {
+                    closeQRModal();
+                }
+            });
+
+            // Iniciar atualização automática
+            function startAutoUpdate() {
+                updateInterval = setInterval(loadInstances, 60000); // 1 minuto
+            }
+
+            // Inicializar aplicação
+            loadInstances();
+            startAutoUpdate();
+        });
+    </script>
+</body>
+
+</html>
