@@ -3,7 +3,11 @@ import { useServerStore } from '../store/useServerStore';
 import ServerForm from './ServerForm';
 import { Server } from '../types';
 
-export default function ServerList() {
+interface ServerListProps {
+  onEditServer?: (server: Server) => void;
+}
+
+export default function ServerList({ onEditServer }: ServerListProps) {
   const { servers, fetchServers, deleteServer } = useServerStore();
   const [editingServer, setEditingServer] = useState<Server | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -13,8 +17,12 @@ export default function ServerList() {
   }, [fetchServers]);
 
   const handleEdit = (server: Server) => {
-    setEditingServer(server);
-    setIsFormOpen(true);
+    if (onEditServer) {
+      onEditServer(server);
+    } else {
+      setEditingServer(server);
+      setIsFormOpen(true);
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -31,7 +39,7 @@ export default function ServerList() {
   return (
     <div className="space-y-4">
       <button onClick={() => setIsFormOpen(true)} className="w-full sm:w-auto bg-blue-500 text-white px-4 py-2 rounded-md">Adicionar Servidor</button>
-      {isFormOpen && <ServerForm server={editingServer} onClose={handleCloseForm} />}
+      {isFormOpen && !onEditServer && <ServerForm server={editingServer} onClose={handleCloseForm} />}
       <div className="divide-y divide-gray-200">
         {servers.map((server) => (
           <div key={server.id} className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">

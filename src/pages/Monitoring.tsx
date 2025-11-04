@@ -31,7 +31,7 @@ interface ConnectionMetrics {
   id: string;
   name: string;
   type: 'evolution' | 'wuzapi';
-  status: 'connected' | 'disconnected' | 'error';
+  status: 'connected' | 'disconnected' | 'connecting' | 'error';
   messagesCount: number;
   lastActivity: string;
   responseTime: number;

@@ -53,6 +53,20 @@ export function useServerSelection() {
     };
   }, [servers]);
 
+  const normalizeServerStatus = (s: Server['status']): 'connected' | 'disconnected' | 'testing' => {
+    switch (s) {
+      case 'online':
+        return 'connected';
+      case 'offline':
+        return 'disconnected';
+      case 'testing':
+        return 'testing';
+      case 'error':
+      default:
+        return 'disconnected';
+    }
+  };
+
   // Obter servidores disponíveis por tipo
   const getAvailableServers = (type?: 'evolution' | 'wuzapi'): AvailableServer[] => {
     let filteredConfigs = servers.filter(config => config.isActive);
@@ -66,7 +80,7 @@ export function useServerSelection() {
       name: config.name,
       type: config.type,
       url: config.url,
-      status: config.status,
+      status: normalizeServerStatus(config.status),
       isActive: config.isActive
     }));
   };
@@ -83,7 +97,7 @@ export function useServerSelection() {
       name: config.name,
       type: config.type,
       url: config.url,
-      status: config.status,
+      status: normalizeServerStatus(config.status),
       isActive: config.isActive
     };
   };

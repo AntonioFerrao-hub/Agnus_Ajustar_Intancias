@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosRequestHeaders } from 'axios';
 import { Server, ServerFormData } from './types';
 
 const api = axios.create({
@@ -9,8 +9,9 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('auth_token');
   if (token) {
-    config.headers = config.headers || {};
-    (config.headers as any)['Authorization'] = `Bearer ${token}`;
+    const headers = (config.headers ?? {}) as AxiosRequestHeaders;
+    (headers as any).Authorization = `Bearer ${token}`;
+    config.headers = headers;
   }
   return config;
 });
