@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: antonioferrao-hub/agnus-ajustar-intancias
+  IMAGE_NAME: antonioferrao/agnus-ajustar-intancias
 
 jobs:
   build:
