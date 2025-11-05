@@ -85,7 +85,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            docker.io/${{ github.repository_owner }}/agnus_ajustar_intancias
+            docker.io/${{ env.DOCKERHUB_USERNAME }}/agnus_ajustar_intancias
           tags: |
             type=raw,value=latest
             type=ref,event=tag
