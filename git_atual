@@ -118,7 +118,7 @@ networks:
 
 services:
   conexao-app:
-    image: docker.io/${DOCKERHUB_USERNAME}/agnus_ajustar_intancias:latest
+    image: docker.io/antonioferrao/agnus_ajustar_intancias:latest
     networks:
       - ideiasia
     environment:
