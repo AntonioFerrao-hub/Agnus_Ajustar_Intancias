@@ -19,8 +19,7 @@ services:
       DB_PASSWORD: Acesso@2025AAAAA
       DB_DATABASE: u514763314_instancias
       DB_PORT: "3306"
-      # Defina o JWT no Portainer para não expor segredos no repositório
-      JWT_SECRET: ${JWT_SECRET}
+      # JWT_SECRET removido da stack conforme solicitado
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:3000/ || wget -qO- http://localhost:3000/ || exit 1"]
       interval: 30s
