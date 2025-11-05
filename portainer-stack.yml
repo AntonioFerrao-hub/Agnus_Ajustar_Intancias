@@ -36,7 +36,7 @@ services:
         - "traefik.enable=true"
         - "traefik.docker.network=ideaisia"
         # === Router principal (HTTPS) ===
-        - "traefik.http.routers.conexao.rule=Host(`conexao.webferraogorup.com.br`)"
+        - "traefik.http.routers.conexao.rule=Host(`conexao.webferraogroup.com.br`)"
         - "traefik.http.routers.conexao.entrypoints=websecure"
         - "traefik.http.routers.conexao.tls=true"
         - "traefik.http.routers.conexao.tls.certresolver=letsencryptresolver"
