@@ -22,6 +22,12 @@ app.use('/api/auth', authRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/wuz', wuzRouter);
 
+// Expor versão da aplicação em tempo de execução
+app.get('/api/version', (req, res) => {
+  const version = process.env.APP_VERSION || 'dev';
+  res.json({ version });
+});
+
 app.get('/', (req, res) => {
   res.send('Backend do Agnus está rodando!');
 });

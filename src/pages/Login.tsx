@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 
@@ -8,6 +8,19 @@ export function Login() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState<string>((import.meta.env.VITE_APP_VERSION as string) || 'dev');
+
+  useEffect(() => {
+    // Busca versão do backend em tempo de execução
+    fetch('/api/version')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.version) setVersion(data.version);
+      })
+      .catch(() => {
+        // mantém fallback
+      });
+  }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +39,7 @@ export function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-      <div className="bg-white w-full max-w-md rounded-lg shadow p-6" data-version="v1.4">
+      <div className="bg-white w-full max-w-md rounded-lg shadow p-6" data-version={version}>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Entrar</h2>
         <p className="text-gray-600 mb-6">Acesse o WhatsApp Manager</p>
 
@@ -67,7 +80,7 @@ export function Login() {
             {isLoading ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
-        <div className="mt-4 text-xs text-gray-400 text-right">v1.4</div>
+        <div className="mt-4 text-xs text-gray-400 text-right">{version}</div>
       </div>
     </div>
   );
