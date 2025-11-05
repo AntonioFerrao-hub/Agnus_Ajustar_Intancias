@@ -28,9 +28,7 @@ app.get('/api/version', (req, res) => {
   res.json({ version });
 });
 
-app.get('/', (req, res) => {
-  res.send('Backend do Agnus está rodando!');
-});
+
 
 // Inicia servidor apenas quando executado diretamente (ambiente local)
 if (require.main === module) {

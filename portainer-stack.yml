@@ -40,7 +40,6 @@ services:
         - "traefik.http.routers.conexao.entrypoints=websecure"
         - "traefik.http.routers.conexao.tls=true"
         - "traefik.http.routers.conexao.tls.certresolver=letsencryptresolver"
-        - "traefik.http.routers.conexao.service=conexao"
+        - "traefik.http.routers.conexao.service=conexao-app@docker"
         # === Service apontando para a porta interna do container ===
-        - "traefik.http.services.conexao.loadbalancer.server.port=3000"
-        - "traefik.http.services.conexao.loadbalancer.passHostHeader=true"
+        - "traefik.http.services.conexao-app.loadbalancer.server.port=3000"
