@@ -1,57 +1,42 @@
-# React + TypeScript + Vite
+# Agnus Ajustar Instâncias
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicação full-stack (frontend em Vite + backend Express) para gerenciar conexões/instâncias. Este README foca em rodar via Docker localmente e publicar imagens via GitHub Actions.
 
-Currently, two official plugins are available:
+## Rodando com Docker Compose
+- Pré-requisitos: `Docker` e `Docker Compose` instalados.
+- Configure o arquivo `.env` (baseado em `.env.example`). Campos mínimos:
+  - `NODE_ENV=production`
+  - `PORT=3000`
+  - `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_DATABASE`, `DB_PORT`
+  - `JWT_SECRET` é opcional; se ausente, o backend usa `dev-secret-change-me`.
+- Comandos:
+  - `docker compose up -d` — constrói a imagem e sobe o serviço `web` em `localhost:3000`.
+  - `docker compose logs -f web` — acompanha os logs (inclui teste de conexão ao MySQL).
+  - `docker compose down` — para e remove os recursos.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Saúde e verificação
+- Healthcheck: o container tenta acessar `http://localhost:3000/` periodicamente.
+- Backend expõe `GET /api/version` para conferir versão em runtime.
+- Logs iniciais mostram resultado da conexão com o MySQL.
 
-## Expanding the ESLint configuration
+## Imagens Docker (CI/CD)
+- O pipeline (`.github/workflows/docker.yml`) publica em:
+  - `ghcr.io/<owner>/agnus_ajustar_intancias:latest` e tags de `sha`/`release`.
+  - `docker.io/<DOCKERHUB_USERNAME>/agnus_ajustar_intancias:latest` e tags de `sha`/`release` (se credenciais configuradas).
+- Para usar imagem pronta sem build local, ajuste `docker-compose.yml` para:
+  - `image: docker.io/<seu-usuario>/agnus_ajustar_intancias:latest`
+  - Remover `build: .` se não quiser compilar localmente.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Portainer / Stack
+- `portainer-stack.yml` já aponta para Docker Hub com tag `latest` e labels Traefik.
+- Defina `DOCKERHUB_USERNAME` no ambiente do Portainer (ou mantenha `antonioferrao-hub` como fallback).
+- As variáveis de banco estão no serviço `conexao-app`; ajuste conforme seu ambiente.
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+## Desenvolvimento local sem Docker
+- `pnpm install`
+- `pnpm run dev` (frontend)
+- `node backend/index.js` (backend, se quiser rodar separado)
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config({
-  extends: [
-    // other configs...
-    // Enable lint rules for React
-    reactX.configs['recommended-typescript'],
-    // Enable lint rules for React DOM
-    reactDom.configs.recommended,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+## Notas
+- Evite commitar segredos reais em arquivos versionados. Use variáveis de ambiente/secret store.
+- JWT sem `JWT_SECRET` gera tokens com um segredo padrão apenas para desenvolvimento.
