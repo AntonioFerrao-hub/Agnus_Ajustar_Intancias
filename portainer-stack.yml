@@ -6,7 +6,7 @@ networks:
 
 services:
   conexao-app:
-    image: antonioferrao-hub/agnus-ajustar-intancias:latest
+    image: antonioferrao/agnus-ajustar-intancias:latest
     networks:
       - ideiasia
     environment:
@@ -35,11 +35,19 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.docker.network=ideaisia"
+        # === Serviço apontando para a porta interna do container ===
+        - "traefik.http.services.conexao.loadbalancer.server.port=3000"
+        
         # === Router principal (HTTPS) ===
         - "traefik.http.routers.conexao.rule=Host(`conexao.webferraogroup.com.br`)"
         - "traefik.http.routers.conexao.entrypoints=websecure"
         - "traefik.http.routers.conexao.tls=true"
         - "traefik.http.routers.conexao.tls.certresolver=letsencryptresolver"
-        - "traefik.http.routers.conexao.service=conexao-app@docker"
-        # === Service apontando para a porta interna do container ===
-        - "traefik.http.services.conexao-app.loadbalancer.server.port=3000"
+        - "traefik.http.routers.conexao.service=conexao"
+
+        # === Redirect HTTP -> HTTPS ===
+        - "traefik.http.middlewares.conexao-https-redirect.redirectscheme.scheme=https"
+        - "traefik.http.routers.conexao-http.rule=Host(`conexao.webferraogroup.com.br`)"
+        - "traefik.http.routers.conexao-http.entrypoints=web"
+        - "traefik.http.routers.conexao-http.middlewares=conexao-https-redirect"
+        - "traefik.http.routers.conexao-http.service=conexao"
