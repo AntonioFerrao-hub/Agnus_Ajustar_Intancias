@@ -6,7 +6,7 @@ networks:
 
 services:
   conexao-app:
-    image: ghcr.io/antonioferrao-hub/agnus_ajustar_intancias:v1.4.1
+    image: ghcr.io/antonioferrao-hub/agnus_ajustar_intancias:v1.4.2
     networks:
       - ideiasia
     environment:
