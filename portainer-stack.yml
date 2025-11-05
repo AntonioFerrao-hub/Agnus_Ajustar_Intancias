@@ -13,12 +13,13 @@ services:
       TZ: America/Sao_Paulo
       NODE_ENV: production
       PORT: 3000
-      # Banco de dados externo (defina no Portainer ou compose env)
-      DB_HOST: ${DB_HOST}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_DATABASE: ${DB_DATABASE}
-      DB_PORT: ${DB_PORT}
+      # Banco de dados externo (valores reais)
+      DB_HOST: srv1074.hstgr.io
+      DB_USER: u514763314_instancias
+      DB_PASSWORD: Acesso@2025AAAAA
+      DB_DATABASE: u514763314_instancias
+      DB_PORT: "3306"
+      # Defina o JWT no Portainer para não expor segredos no repositório
       JWT_SECRET: ${JWT_SECRET}
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:3000/ || wget -qO- http://localhost:3000/ || exit 1"]
