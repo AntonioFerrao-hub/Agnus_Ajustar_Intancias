@@ -13,13 +13,13 @@ services:
       TZ: America/Sao_Paulo
       NODE_ENV: production
       PORT: 3000
-      # Banco de dados externo (exemplo – ajuste antes de deploy)
-      DB_HOST: mysql.webferraogorup.com.br
-      DB_USER: agnus
-      DB_PASSWORD: CHANGEME_DB_PASSWORD
-      DB_DATABASE: agnus_db
-      DB_PORT: "3306"
-      JWT_SECRET: CHANGEME_JWT_SECRET
+      # Banco de dados externo (defina no Portainer ou compose env)
+      DB_HOST: ${DB_HOST}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_DATABASE: ${DB_DATABASE}
+      DB_PORT: ${DB_PORT}
+      JWT_SECRET: ${JWT_SECRET}
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:3000/ || wget -qO- http://localhost:3000/ || exit 1"]
       interval: 30s
