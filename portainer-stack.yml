@@ -6,7 +6,7 @@ networks:
 
 services:
   conexao-app:
-    image: ghcr.io/antonioferrao-hub/agnus_ajustar_intancias:v1.5.5
+    image: docker.io/${DOCKERHUB_USERNAME:-antonioferrao-hub}/agnus_ajustar_intancias:v1.5.5
     networks:
       - ideiasia
     environment:
