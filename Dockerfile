@@ -22,6 +22,7 @@ ARG APP_VERSION=dev
 ENV APP_VERSION=${APP_VERSION}
 
 RUN corepack enable
+RUN apk add --no-cache curl
 
 # Instala apenas prod deps para reduzir imagem
 COPY package.json pnpm-lock.yaml ./
