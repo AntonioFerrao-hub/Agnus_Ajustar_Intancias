@@ -5,8 +5,8 @@ networks:
     external: true
 
 services:
-  agnus_ajustar_intancias:
-    image: docker.io/${DOCKERHUB_USERNAME:-antonioferrao}/agnus_ajustar_intancias:${IMAGE_TAG:-latest}
+  conexao:
+    image: docker.io/${DOCKERHUB_USERNAME:-antonioferrao}/conexao:${IMAGE_TAG:-latest}
     networks:
       - ideiasia
     environment:
@@ -32,7 +32,7 @@ services:
         - "traefik.http.routers.conexao.entrypoints=websecure"
         - "traefik.http.routers.conexao.tls=true"
         - "traefik.http.routers.conexao.tls.certresolver=letsencryptresolver"
-        - "traefik.http.routers.conexao.service=agnus_ajustar_intancias"
+        - "traefik.http.routers.conexao.service=conexao"
         # === Service apontando para a porta interna do container ===
-        - "traefik.http.services.agnus_ajustar_intancias.loadbalancer.server.port=80"
-        - "traefik.http.services.agnus_ajustar_intancias.loadbalancer.passHostHeader=true"
+        - "traefik.http.services.conexao.loadbalancer.server.port=80"
+        - "traefik.http.services.conexao.loadbalancer.passHostHeader=true"
