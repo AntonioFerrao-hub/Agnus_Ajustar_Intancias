@@ -28,7 +28,7 @@ RUN pnpm install --prod --frozen-lockfile
 # Copia backend, servidor e artefatos estáticos
 COPY backend ./backend
 COPY server.js ./server.js
-COPY dist ./dist
+COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
 CMD ["node", "server.js"]
