@@ -6,7 +6,7 @@ networks:
 
 services:
   conexao-app:
-    image: docker.io/${DOCKERHUB_USERNAME:-antonioferrao-hub}/agnus_ajustar_intancias:latest
+    image: docker.io/${DOCKERHUB_USERNAME:-antonioferrao-hub}/agnus_ajustar_intancias:${IMAGE_TAG:-latest}
     networks:
       - ideiasia
     environment:
