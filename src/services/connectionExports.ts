@@ -1,4 +1,4 @@
-import axios from 'axios';
+import api from '../api';
 
 export interface ConnectionExportSnapshot {
   id: string;
@@ -10,6 +10,6 @@ export interface ConnectionExportSnapshot {
 }
 
 export async function getConnectionExports(params?: { serverId?: string; type?: 'evolution' | 'wuzapi' }): Promise<ConnectionExportSnapshot[]> {
-  const response = await axios.get('/api/connections/exports', { params });
-  return response.data;
+  const response = await api.get('/connections/exports', { params });
+  return response.data as ConnectionExportSnapshot[];
 }

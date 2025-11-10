@@ -57,4 +57,25 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
+  // Configuração de preview para o build estático (npm run preview)
+  // Inclui proxy para backend local em /api, espelhando o dev server
+  preview: {
+    proxy: {
+      '/api/wuzapi': {
+        target: 'https://wu3.ideiasia.com.br',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/wuzapi/, ''),
+      },
+      '/api/evolution': {
+        target: 'https://wp3.agnusconsig.com.br',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/evolution/, ''),
+      },
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
 }))

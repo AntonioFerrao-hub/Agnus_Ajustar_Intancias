@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Plus, 
   Trash2, 
@@ -56,13 +56,28 @@ export default function ConnectionList() {
   const [dbServerFilter, setDbServerFilter] = useState<string>('');
   const [dbBatchFilter, setDbBatchFilter] = useState<string>('');
   const [dbSnapshots, setDbSnapshots] = useState<ConnectionExportSnapshot[]>([]);
-  const [showDbFilters, setShowDbFilters] = useState(false);
+  const [showDbFilters, setShowDbFilters] = useState(true);
+
+  // Referência para focar o primeiro campo ao abrir filtros (modo Banco)
+  const dbServerSelectRef = useRef<HTMLSelectElement>(null);
+
+  const clearDbFilters = () => {
+    setDbServerFilter('');
+    setDbBatchFilter('');
+    setDbSnapshots([]);
+  };
+
+  useEffect(() => {
+    if (!onlineMode) {
+      dbServerSelectRef.current?.focus();
+    }
+  }, [onlineMode]);
 
   // Carregar snapshots somente quando filtros estiverem visíveis e servidor selecionado (modo Banco)
   useEffect(() => {
     async function loadSnapshots() {
       try {
-        if (!onlineMode && showDbFilters && dbServerFilter) {
+        if (!onlineMode && dbServerFilter) {
           const snapshots = await getConnectionExports({ serverId: dbServerFilter });
           setDbSnapshots(snapshots);
         } else {
@@ -73,7 +88,7 @@ export default function ConnectionList() {
       }
     }
     loadSnapshots();
-  }, [onlineMode, showDbFilters, dbServerFilter]);
+  }, [onlineMode, dbServerFilter]);
   const [onlineLoading, setOnlineLoading] = useState(false);
   const [onlineError, setOnlineError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string>('');
@@ -575,43 +590,10 @@ export default function ConnectionList() {
   });
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      {!onlineMode && showDbFilters && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-700">Servidor</label>
-            <select
-              value={dbServerFilter}
-              onChange={e => {
-                setDbServerFilter(e.target.value);
-                setDbBatchFilter('');
-              }}
-              className="border rounded px-2 py-1"
-            >
-              <option value="">Todos</option>
-              {servers.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-700">Data de exportação</label>
-            <select
-              value={dbBatchFilter}
-              onChange={e => setDbBatchFilter(e.target.value)}
-              className="border rounded px-2 py-1"
-            >
-              <option value="">Todas</option>
-              {dbSnapshots.map(s => (
-                <option key={s.id} value={s.batchId}>{new Date(s.exportedAt).toLocaleString('pt-BR')}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      )}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+      {/* Filtros do Banco – renderizados abaixo das ações */}
+      <div className="bg-white border rounded-lg p-4 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-1">
           <h2 className="text-lg font-semibold text-gray-900">Conexões WhatsApp</h2>
           <p className="text-sm text-gray-600">Gerencie suas conexões com WhatsApp</p>
         </div>
@@ -628,22 +610,7 @@ export default function ConnectionList() {
           >
             Banco
           </button>
-          {!onlineMode && (
-            <button
-              onClick={() => setShowDbFilters((v) => !v)}
-              className={`w-full sm:w-auto inline-flex items-center px-3 py-2 rounded ${showDbFilters ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-700'}`}
-            >
-              {showDbFilters ? (
-                <>
-                  <EyeOff className="h-4 w-4 mr-2" /> Ocultar Filtros
-                </>
-              ) : (
-                <>
-                  <Eye className="h-4 w-4 mr-2" /> Filtros
-                </>
-              )}
-            </button>
-          )}
+          {/* Filtros sempre visíveis no modo Banco – botão de toggle removido */}
           {!onlineMode && (
             <button
               onClick={() => setShowForm(true)}
@@ -655,6 +622,63 @@ export default function ConnectionList() {
           )}
         </div>
       </div>
+
+      {/* Filtros (modo Banco) – painel estruturado, sempre visível no modo Banco */}
+      {!onlineMode && (
+        <div className="bg-white border rounded-lg p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="inline-flex items-center gap-2 text-gray-800">
+              <Eye className="h-4 w-4" />
+              <span className="text-sm font-medium">Filtros do Banco</span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={clearDbFilters}
+                className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 inline-flex items-center shadow-sm transition-colors"
+              >
+                <Trash2 className="h-4 w-4 mr-2" /> Limpar
+              </button>
+              {/* Botão de ocultar removido conforme solicitado */}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label htmlFor="db-server-select" className="block text-sm font-medium text-gray-700">Servidor</label>
+              <select
+                id="db-server-select"
+                ref={dbServerSelectRef}
+                value={dbServerFilter}
+                onChange={e => {
+                  setDbServerFilter(e.target.value);
+                  setDbBatchFilter('');
+                }}
+                className="w-full border rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-200"
+              >
+                <option value="">Selecione</option>
+                {servers.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500">Obrigatório: selecione um servidor.</p>
+            </div>
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Data de exportação</label>
+              <select
+                value={dbBatchFilter}
+                onChange={e => setDbBatchFilter(e.target.value)}
+                className="w-full border rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-200"
+                disabled={!dbServerFilter || dbSnapshots.length === 0}
+              >
+                <option value="">Selecione</option>
+                {dbSnapshots.map(s => (
+                  <option key={s.id} value={s.batchId}>{new Date(s.exportedAt).toLocaleString('pt-BR')}</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500">Obrigatório: selecione a data de exportação.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODO ONLINE */}
       {onlineMode && (
@@ -970,8 +994,8 @@ export default function ConnectionList() {
         </div>
       )}
 
-      {/* Lista banco: exibir apenas quando filtros estiverem abertos e houver seleção */}
-      {!onlineMode && !isLoading && showDbFilters && (dbServerFilter || dbBatchFilter) && (
+      {/* Lista banco: exibir apenas quando ambos filtros estiverem selecionados */}
+      {!onlineMode && !isLoading && (dbServerFilter && dbBatchFilter) && (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           {connections.length === 0 ? (
             <div className="text-center py-12">

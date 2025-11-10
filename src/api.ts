@@ -1,8 +1,11 @@
 import axios, { AxiosRequestHeaders } from 'axios';
 import { Server, ServerFormData } from './types';
 
+// Permite definir a base de API via env em tempo de build (ex.: preview/produção)
+// Fallback para '/api' em desenvolvimento com proxy do Vite.
+const apiBaseURL = (import.meta as any)?.env?.VITE_API_BASE_URL || '/api';
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: apiBaseURL,
 });
 
 // Attach JWT token if available
