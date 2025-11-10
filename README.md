@@ -20,11 +20,13 @@ Aplicação full-stack (frontend em Vite + backend Express) para gerenciar conex
 - Logs iniciais mostram resultado da conexão com o MySQL.
 
 ## Imagens Docker (CI/CD)
-- O pipeline (`.github/workflows/docker.yml`) publica em:
-  - `ghcr.io/<owner>/agnus_ajustar_intancias:latest` e tags de `sha`/`release`.
-  - `docker.io/<DOCKERHUB_USERNAME>/agnus_ajustar_intancias:latest` e tags de `sha`/`release` (se credenciais configuradas).
+- O pipeline (`.github/workflows/docker.yml`) constrói e publica automaticamente em:
+  - `docker.io/antonioferrao/agnus-ajustar-intancias:latest` e tags derivadas de branch/tag (ex.: `main`, `v1.2.3`).
+- Requisitos de secrets no repositório (Settings → Secrets and variables → Actions):
+  - `DOCKER_USERNAME` → seu usuário do Docker Hub (ex.: `antonioferrao`).
+  - `DOCKER_PASSWORD` → token de acesso/personal access token do Docker Hub.
 - Para usar imagem pronta sem build local, ajuste `docker-compose.yml` para:
-  - `image: docker.io/<seu-usuario>/agnus_ajustar_intancias:latest`
+  - `image: docker.io/antonioferrao/agnus-ajustar-intancias:latest`
   - Remover `build: .` se não quiser compilar localmente.
 
 ## Portainer / Stack
