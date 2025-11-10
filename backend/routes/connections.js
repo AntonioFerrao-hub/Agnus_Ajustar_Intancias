@@ -16,6 +16,70 @@ function normalizeIdentifier(str) {
     .toLowerCase();
 }
 
+// Garante compatibilidade do schema da tabela connections
+async function ensureConnectionsSchema() {
+  try {
+    // Cria tabela caso não exista (compatível com create-tables.js)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS connections (
+        id VARCHAR(36) PRIMARY KEY,
+        name VARCHAR(255),
+        type ENUM('evolution','wuzapi'),
+        status VARCHAR(50),
+        phone VARCHAR(30),
+        profileName VARCHAR(255),
+        profilePicture TEXT,
+        qrCode TEXT,
+        token VARCHAR(255),
+        instanceName VARCHAR(255),
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        lastActivity TIMESTAMP NULL,
+        webhook TEXT,
+        server_id VARCHAR(36)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // Adiciona coluna rawData para armazenar todos os campos vindos da API
+    try {
+      await pool.query('ALTER TABLE connections ADD COLUMN rawData LONGTEXT NULL');
+    } catch (e) {
+      // Ignora erro de coluna já existente
+    }
+
+    // Adiciona coluna exportBatchId para vincular exportações por data/servidor
+    try {
+      await pool.query('ALTER TABLE connections ADD COLUMN exportBatchId VARCHAR(36) NULL');
+    } catch (e) {
+      // Ignora erro de coluna já existente
+    }
+  } catch (err) {
+    console.error('Erro ao garantir schema de connections:', err.message);
+  }
+}
+
+// Dispara verificação/ajuste de schema ao carregar o router
+ensureConnectionsSchema();
+
+// Garante tabela de snapshots de exportação (por servidor/data)
+async function ensureConnectionExportsSchema() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS connection_exports (
+        id VARCHAR(36) PRIMARY KEY,
+        server_id VARCHAR(36) NOT NULL,
+        type ENUM('evolution','wuzapi') NOT NULL,
+        exported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        item_count INT DEFAULT 0
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+  } catch (err) {
+    console.error('Erro ao garantir schema de connection_exports:', err.message);
+  }
+}
+
+// Dispara verificação/ajuste de schema ao carregar o router
+ensureConnectionExportsSchema();
+
 // GET all connections
 router.get('/', async (req, res) => {
   try {
@@ -32,7 +96,8 @@ router.get('/', async (req, res) => {
       webhook: row.webhook,
       serverId: row.server_id, // Transform server_id to serverId
       status: row.status || 'disconnected',
-      createdAt: row.created_at || row.createdAt
+      createdAt: row.created_at || row.createdAt,
+      exportBatchId: row.exportBatchId || row.export_batch_id || null
     }));
     
     res.json(connections);
@@ -40,6 +105,191 @@ router.get('/', async (req, res) => {
     console.error('Erro ao buscar conexões:', error);
     res.status(500).json({ message: error.message });
   }
+});
+
+// Lista snapshots de exportação
+router.get('/exports', async (req, res) => {
+  try {
+    const { serverId, type } = req.query;
+
+    let sql = 'SELECT id, server_id, type, exported_at, item_count FROM connection_exports';
+    const params = [];
+    const where = [];
+
+    if (serverId) {
+      where.push('server_id = ?');
+      params.push(serverId);
+    }
+    if (type) {
+      where.push('type = ?');
+      params.push(type);
+    }
+
+    if (where.length > 0) {
+      sql += ' WHERE ' + where.join(' AND ');
+    }
+    sql += ' ORDER BY exported_at DESC';
+
+    const [rows] = await pool.query(sql, params);
+    const snapshots = rows.map(row => ({
+      id: row.id,
+      batchId: row.id,
+      serverId: row.server_id,
+      type: row.type,
+      exportedAt: row.exported_at,
+      itemCount: row.item_count || 0,
+    }));
+
+    res.json(snapshots);
+  } catch (error) {
+    console.error('Erro ao listar snapshots de exportação:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Exporta em lote conexões vindas das APIs online para o banco
+router.post('/export', async (req, res) => {
+  const { type, serverId, items, batchId: bodyBatchId, exportDate } = req.body || {};
+  if (!type || !['evolution', 'wuzapi'].includes(type)) {
+    return res.status(400).json({ message: 'Tipo inválido. Use "evolution" ou "wuzapi".' });
+  }
+  if (!serverId) {
+    return res.status(400).json({ message: 'serverId é obrigatório.' });
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ message: 'items deve ser um array com pelo menos um elemento.' });
+  }
+
+  await ensureConnectionsSchema();
+  await ensureConnectionExportsSchema();
+
+  // Identificador do lote de exportação por servidor/data
+  const batchId = bodyBatchId || uuidv4();
+  const exportedAt = exportDate ? new Date(exportDate) : new Date();
+
+  // Mapeia status das diferentes APIs para nosso domínio
+  const normalizeStatus = (raw) => {
+    const s = String(raw || '').toLowerCase();
+    if (['open', 'connected', 'online', 'conectada'].includes(s)) return 'connected';
+    if (['connecting', 'conectando'].includes(s)) return 'connecting';
+    if (['closed', 'close', 'disconnected', 'offline', 'erro', 'error', 'desconectada'].includes(s)) return 'disconnected';
+    return 'disconnected';
+  };
+
+  // Constrói registro compatível com tabela a partir de item Evolution
+  const fromEvolution = (item) => {
+    const status = normalizeStatus(item.connectionStatus ?? item.status);
+    return {
+      name: item.name || item.instanceName || item.profileName || '',
+      type: 'evolution',
+      status,
+      phone: item.number || item.phone || null,
+      profileName: item.profileName || null,
+      profilePicture: item.profilePicUrl || item.profilePic || null,
+      qrCode: item.qrcode || null,
+      token: item.token || null,
+      instanceName: item.name || item.instanceName || null,
+    };
+  };
+
+  // Constrói registro compatível com tabela a partir de item WUZAPI
+  const fromWuzapi = (item) => {
+    const status = (item.connected && item.loggedIn) ? 'connected' : (item.connected ? 'connecting' : 'disconnected');
+    return {
+      name: item.name || item.token || '',
+      type: 'wuzapi',
+      status,
+      phone: item.phone || null,
+      profileName: item.name || null,
+      profilePicture: null,
+      qrCode: item.qrcode || null,
+      token: item.token || null,
+      instanceName: item.token || null,
+    };
+  };
+
+  const results = [];
+  let inserted = 0;
+  let updated = 0;
+
+  for (const raw of items) {
+    const mapped = type === 'evolution' ? fromEvolution(raw) : fromWuzapi(raw);
+    const rawData = JSON.stringify(raw);
+
+    // Tenta localizar conexão existente por token/instanceName/name dentro do mesmo servidor
+    let existingId = null;
+    try {
+      const [rows] = await pool.query(
+        `SELECT id FROM connections 
+         WHERE server_id = ? AND (
+           (token IS NOT NULL AND token = ?) OR 
+           (instanceName IS NOT NULL AND instanceName = ?) OR 
+           (name IS NOT NULL AND name = ?)
+         ) 
+         LIMIT 1`,
+        [serverId, mapped.token || null, mapped.instanceName || null, mapped.name || null]
+      );
+      if (rows && rows.length > 0) {
+        existingId = rows[0].id;
+      }
+    } catch (findErr) {
+      console.error('Erro ao buscar conexão existente:', findErr.message);
+    }
+
+    if (existingId) {
+      // Atualiza registro
+      try {
+        await pool.query(
+          `UPDATE connections SET 
+             name = ?, type = ?, status = ?, phone = ?, profileName = ?, profilePicture = ?,
+             qrCode = ?, token = ?, instanceName = ?, lastActivity = NOW(), webhook = ?, rawData = ?, exportBatchId = ?
+           WHERE id = ?`,
+          [
+            mapped.name, mapped.type, mapped.status, mapped.phone, mapped.profileName, mapped.profilePicture,
+            mapped.qrCode, mapped.token, mapped.instanceName, null, rawData, batchId, existingId
+          ]
+        );
+        updated++;
+        results.push({ id: existingId, action: 'updated', name: mapped.name });
+      } catch (updErr) {
+        console.error('Erro ao atualizar conexão:', updErr.message);
+        results.push({ id: existingId, action: 'error', error: updErr.message, name: mapped.name });
+      }
+    } else {
+      // Insere novo registro
+      const id = uuidv4();
+      try {
+        await pool.query(
+          `INSERT INTO connections 
+            (id, name, type, status, phone, profileName, profilePicture, qrCode, token, instanceName, server_id, createdAt, lastActivity, webhook, rawData, exportBatchId)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?)`,
+          [
+            id, mapped.name, mapped.type, mapped.status, mapped.phone, mapped.profileName, mapped.profilePicture,
+            mapped.qrCode, mapped.token, mapped.instanceName, serverId, null, rawData, batchId
+          ]
+        );
+        inserted++;
+        results.push({ id, action: 'inserted', name: mapped.name });
+      } catch (insErr) {
+        console.error('Erro ao inserir conexão:', insErr.message);
+        results.push({ id, action: 'error', error: insErr.message, name: mapped.name });
+      }
+    }
+  }
+
+  // Registra/atualiza snapshot de exportação por servidor/data
+  try {
+    await pool.query(
+      `INSERT INTO connection_exports (id, server_id, type, exported_at, item_count)
+       VALUES (?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE item_count = item_count + VALUES(item_count)`,
+      [batchId, serverId, type, exportedAt, items.length]
+    );
+  } catch (snapErr) {
+    console.error('Erro ao registrar snapshot de exportação:', snapErr.message);
+  }
+
+  return res.json({ inserted, updated, results, batchId });
 });
 
 // GET QR Code for a specific connection

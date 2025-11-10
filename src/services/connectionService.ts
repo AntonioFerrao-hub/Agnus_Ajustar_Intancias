@@ -25,4 +25,9 @@ export const connectionService = {
     const response = await api.get(`/connections/${id}/qrcode`);
     return response.data;
   },
+
+  async exportConnections(payload: { type: 'evolution' | 'wuzapi'; serverId: string; items: any[]; batchId?: string; exportDate?: string }): Promise<{ inserted: number; updated: number; results: any[]; batchId: string }> {
+    const response = await api.post('/connections/export', payload);
+    return response.data;
+  },
 };

@@ -13,6 +13,8 @@ export interface Connection {
   createdAt: string;
   lastActivity?: string;
   webhook?: string;
+  serverId?: string;
+  exportBatchId?: string | null;
 }
 
 // Payload para criação/atualização de conexão com suporte a Evolution flags

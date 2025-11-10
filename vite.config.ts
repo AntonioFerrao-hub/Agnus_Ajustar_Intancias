@@ -3,16 +3,16 @@ import react from '@vitejs/plugin-react'
 import tsconfigPaths from "vite-tsconfig-paths";
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   build: {
-    sourcemap: 'hidden',
+    // Enable full sourcemaps in production to debug runtime errors
+    sourcemap: true,
   },
   plugins: [
     react({
       babel: {
-        plugins: [
-          'react-dev-locator',
-        ],
+        // Only include dev helper in development to avoid production bundling issues
+        plugins: mode === 'development' ? ['react-dev-locator'] : [],
       },
     }),
     tsconfigPaths()
@@ -57,4 +57,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))

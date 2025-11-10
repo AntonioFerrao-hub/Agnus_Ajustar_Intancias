@@ -10,7 +10,7 @@ import {
   User as UserIcon,
   LogOut
 } from 'lucide-react';
-import { cn } from '../../utils/cn';
+import clsx from 'clsx';
 import { authService } from '../../services/authService';
 
 const navigation = [
@@ -59,7 +59,7 @@ export function Sidebar() {
             key={item.name}
             to={item.href}
             className={({ isActive }) =>
-              cn(
+              clsx(
                 'flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors',
                 isActive
                   ? 'bg-green-600 text-white'

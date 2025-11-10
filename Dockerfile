@@ -11,6 +11,9 @@ RUN pnpm install --frozen-lockfile
 
 # Copia o restante do projeto e roda build
 COPY . .
+# Injeta a versão da aplicação no build do frontend (Vite)
+ARG VITE_APP_VERSION=dev
+ENV VITE_APP_VERSION=${VITE_APP_VERSION}
 RUN pnpm run build
 
 # Etapa de runtime: executa Express servindo dist e /api

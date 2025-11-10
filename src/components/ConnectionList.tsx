@@ -19,6 +19,7 @@ import { evolutionApiService } from '../services/evolutionApi';
 import { wuzApiService } from '../services/wuzApi';
 import api from '../api';
 import { connectionService } from '../services/connectionService';
+import { getConnectionExports, ConnectionExportSnapshot } from '../services/connectionExports';
 import { Connection, CreateConnectionPayload, Server, EvolutionInstance, WuzapiUser } from '../types';
 import { ConnectionForm } from './Connection/ConnectionForm';
 import { QRCodeDisplay } from './Connection/QRCodeDisplay';
@@ -52,6 +53,27 @@ export default function ConnectionList() {
   // Modo Online (consulta direta nos servidores)
   const [onlineMode, setOnlineMode] = useState(true);
   const { servers, fetchServers } = useServerStore();
+  const [dbServerFilter, setDbServerFilter] = useState<string>('');
+  const [dbBatchFilter, setDbBatchFilter] = useState<string>('');
+  const [dbSnapshots, setDbSnapshots] = useState<ConnectionExportSnapshot[]>([]);
+  const [showDbFilters, setShowDbFilters] = useState(false);
+
+  // Carregar snapshots somente quando filtros estiverem visíveis e servidor selecionado (modo Banco)
+  useEffect(() => {
+    async function loadSnapshots() {
+      try {
+        if (!onlineMode && showDbFilters && dbServerFilter) {
+          const snapshots = await getConnectionExports({ serverId: dbServerFilter });
+          setDbSnapshots(snapshots);
+        } else {
+          setDbSnapshots([]);
+        }
+      } catch (err) {
+        console.error('Falha ao carregar snapshots:', err);
+      }
+    }
+    loadSnapshots();
+  }, [onlineMode, showDbFilters, dbServerFilter]);
   const [onlineLoading, setOnlineLoading] = useState(false);
   const [onlineError, setOnlineError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string>('');
@@ -78,6 +100,7 @@ export default function ConnectionList() {
   const [selectAllEvolution, setSelectAllEvolution] = useState<boolean>(false);
   const [selectAllWu, setSelectAllWu] = useState<boolean>(false);
   const [currentFilterType, setCurrentFilterType] = useState<'evolution' | 'wuzapi'>('evolution');
+  const [exporting, setExporting] = useState<boolean>(false);
 
   useEffect(() => {
     if (onlineMode) {
@@ -213,7 +236,7 @@ export default function ConnectionList() {
 
   const statusLabelPt = (s: 'connected' | 'connecting' | 'disconnected') =>
     s === 'connected' ? 'Conectada' : s === 'connecting' ? 'Conectando' : 'Desconectada';
-  const counts = useMemo(() => {
+  const countsEvo = useMemo(() => {
     const allInstances: EvolutionInstance[] = Object.values(instancesByServer)
       .flatMap((s) => (s.success ? s.instances || [] : []));
     const connected = allInstances.filter((i) => normalizeInstanceStatus(i) === 'connected').length;
@@ -227,6 +250,34 @@ export default function ConnectionList() {
       connecting,
     };
   }, [instancesByServer]);
+
+  // Normaliza o status vindo do WUZAPI para três estados finais
+  const normalizeWuStatus = (
+    user: WuzapiUser
+  ): 'connected' | 'connecting' | 'disconnected' => {
+    const connected = !!user.connected;
+    const logged = !!user.loggedIn;
+    if (connected && logged) return 'connected';
+    if (connected && !logged) return 'connecting';
+    return 'disconnected';
+  };
+
+  const countsWu = useMemo(() => {
+    const allUsers: WuzapiUser[] = Object.values(wuUsersByServer)
+      .flatMap((s) => (s.success ? s.users || [] : []));
+    const connected = allUsers.filter((u) => normalizeWuStatus(u) === 'connected').length;
+    const connecting = allUsers.filter((u) => normalizeWuStatus(u) === 'connecting').length;
+    const disconnected = allUsers.filter((u) => normalizeWuStatus(u) === 'disconnected').length;
+    return {
+      servers: Object.keys(wuUsersByServer).length,
+      instances: allUsers.length,
+      connected,
+      disconnected,
+      connecting,
+    };
+  }, [wuUsersByServer]);
+
+  const counts = currentFilterType === 'wuzapi' ? countsWu : countsEvo;
 
   const loadOnlineInstances = async () => {
     setOnlineLoading(true);
@@ -301,6 +352,64 @@ export default function ConnectionList() {
     }
   };
 
+  const exportEvolutionToDatabase = async () => {
+    try {
+      setExporting(true);
+      setOnlineError(null);
+      let totalItems = 0;
+      const chunkSize = 50;
+      for (const { server, instances, success } of Object.values(instancesByServer)) {
+        if (!success || !instances || instances.length === 0) continue;
+        totalItems += instances.length;
+        // Gera batchId/exportDate únicos por servidor para vincular todos os chunks
+        const batchId = (typeof crypto !== 'undefined' && (crypto as any).randomUUID) 
+          ? (crypto as any).randomUUID() 
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const exportDate = new Date().toISOString();
+        // Exporta em chunks para evitar 413 Payload Too Large
+        for (let i = 0; i < instances.length; i += chunkSize) {
+          const slice = instances.slice(i, i + chunkSize);
+          await connectionService.exportConnections({ type: 'evolution', serverId: server.id, items: slice, batchId, exportDate });
+        }
+      }
+      setLastUpdate(`Exportadas ${totalItems} instância(s) para o banco em ${new Date().toLocaleString('pt-BR')}`);
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || e?.message || 'Erro ao exportar instâncias';
+      setOnlineError(msg);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const exportWuUsersToDatabase = async () => {
+    try {
+      setExporting(true);
+      setOnlineError(null);
+      let totalItems = 0;
+      const chunkSize = 50;
+      for (const { server, users, success } of Object.values(wuUsersByServer)) {
+        if (!success || !users || users.length === 0) continue;
+        totalItems += users.length;
+        // Gera batchId/exportDate únicos por servidor para vincular todos os chunks
+        const batchId = (typeof crypto !== 'undefined' && (crypto as any).randomUUID) 
+          ? (crypto as any).randomUUID() 
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const exportDate = new Date().toISOString();
+        // Exporta em chunks para evitar 413 Payload Too Large
+        for (let i = 0; i < users.length; i += chunkSize) {
+          const slice = users.slice(i, i + chunkSize);
+          await connectionService.exportConnections({ type: 'wuzapi', serverId: server.id, items: slice, batchId, exportDate });
+        }
+      }
+      setLastUpdate(`Exportados ${totalItems} usuário(s) WU para o banco em ${new Date().toLocaleString('pt-BR')}`);
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || e?.message || 'Erro ao exportar usuários WU';
+      setOnlineError(msg);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const shouldShowInstance = (inst: EvolutionInstance) => {
     const st = normalizeInstanceStatus(inst);
     if (onlineFilter === 'all') return true;
@@ -339,16 +448,6 @@ export default function ConnectionList() {
     } finally {
       setQrLoading(false);
     }
-  };
-
-  const normalizeWuStatus = (
-    user: WuzapiUser
-  ): 'connected' | 'connecting' | 'disconnected' => {
-    const connected = !!user.connected;
-    const logged = !!user.loggedIn;
-    if (connected && logged) return 'connected';
-    if (connected && !logged) return 'connecting';
-    return 'disconnected';
   };
 
   const shouldShowWuUser = (user: WuzapiUser) => {
@@ -478,6 +577,39 @@ export default function ConnectionList() {
   return (
     <div className="space-y-6">
       {/* Header */}
+      {!onlineMode && showDbFilters && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-700">Servidor</label>
+            <select
+              value={dbServerFilter}
+              onChange={e => {
+                setDbServerFilter(e.target.value);
+                setDbBatchFilter('');
+              }}
+              className="border rounded px-2 py-1"
+            >
+              <option value="">Todos</option>
+              {servers.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-700">Data de exportação</label>
+            <select
+              value={dbBatchFilter}
+              onChange={e => setDbBatchFilter(e.target.value)}
+              className="border rounded px-2 py-1"
+            >
+              <option value="">Todas</option>
+              {dbSnapshots.map(s => (
+                <option key={s.id} value={s.batchId}>{new Date(s.exportedAt).toLocaleString('pt-BR')}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Conexões WhatsApp</h2>
@@ -496,6 +628,22 @@ export default function ConnectionList() {
           >
             Banco
           </button>
+          {!onlineMode && (
+            <button
+              onClick={() => setShowDbFilters((v) => !v)}
+              className={`w-full sm:w-auto inline-flex items-center px-3 py-2 rounded ${showDbFilters ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-700'}`}
+            >
+              {showDbFilters ? (
+                <>
+                  <EyeOff className="h-4 w-4 mr-2" /> Ocultar Filtros
+                </>
+              ) : (
+                <>
+                  <Eye className="h-4 w-4 mr-2" /> Filtros
+                </>
+              )}
+            </button>
+          )}
           {!onlineMode && (
             <button
               onClick={() => setShowForm(true)}
@@ -554,6 +702,36 @@ export default function ConnectionList() {
                   <RefreshCw className="h-4 w-4 mr-2" /> Atualizar WU
                 </button>
               )}
+              {currentFilterType === 'evolution' && (
+                <button
+                  onClick={exportEvolutionToDatabase}
+                  disabled={exporting || Object.values(instancesByServer).every((g) => !g.success || (g.instances || []).length === 0)}
+                  className="ml-2 inline-flex items-center px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {exporting ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Exportando...
+                    </>
+                  ) : (
+                    'Exportar'
+                  )}
+                </button>
+              )}
+              {currentFilterType === 'wuzapi' && (
+                <button
+                  onClick={exportWuUsersToDatabase}
+                  disabled={exporting || Object.values(wuUsersByServer).every((g) => !g.success || (g.users || []).length === 0)}
+                  className="ml-2 inline-flex items-center px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {exporting ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Exportando...
+                    </>
+                  ) : (
+                    'Exportar'
+                  )}
+                </button>
+              )}
             </div>
             <div className="w-full space-y-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -582,13 +760,15 @@ export default function ConnectionList() {
                 Desconectadas
               </button>
               </div>
-              <button
-                onClick={disconnectAllConnectingInstances}
-                className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                disabled={counts.connecting === 0}
-              >
-                Desconectar todos (Conectando)
-              </button>
+              {currentFilterType === 'evolution' && (
+                <button
+                  onClick={disconnectAllConnectingInstances}
+                  className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                  disabled={counts.connecting === 0}
+                >
+                  Desconectar todos (Conectando)
+                </button>
+              )}
             </div>
           </div>
 
@@ -599,7 +779,7 @@ export default function ConnectionList() {
               <div className="text-2xl font-bold text-blue-900">{counts.servers}</div>
             </div>
             <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 text-center">
-              <div className="text-sky-700 text-sm">Instâncias</div>
+              <div className="text-sky-700 text-sm">{currentFilterType === 'wuzapi' ? 'Usuários' : 'Instâncias'}</div>
               <div className="text-2xl font-bold text-sky-900">{counts.instances}</div>
             </div>
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
@@ -790,8 +970,8 @@ export default function ConnectionList() {
         </div>
       )}
 
-      {/* Lista banco */}
-      {!onlineMode && !isLoading && (
+      {/* Lista banco: exibir apenas quando filtros estiverem abertos e houver seleção */}
+      {!onlineMode && !isLoading && showDbFilters && (dbServerFilter || dbBatchFilter) && (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           {connections.length === 0 ? (
             <div className="text-center py-12">
@@ -832,7 +1012,9 @@ export default function ConnectionList() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredConnections.map((connection) => (
+          {filteredConnections
+            .filter(c => (!dbServerFilter || c.serverId === dbServerFilter) && (!dbBatchFilter || c.exportBatchId === dbBatchFilter))
+            .map((connection) => (
                     <tr key={connection.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
