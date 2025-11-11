@@ -6,7 +6,7 @@ networks:
 
 services:
   conexao-app:
-    image: antonioferrao/agnus-ajustar-intancias:latest
+    image: antonioferrao/agnus-ajustar-intancias:v1.5.12
     networks:
       - ideiasia
     environment:
