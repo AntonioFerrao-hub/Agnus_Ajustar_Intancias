@@ -6,6 +6,12 @@ on:
     tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Tag de versão (opcional, ex: v1.2.3)'
+        required: false
+        type: string
 
 env:
   REGISTRY: docker.io
@@ -68,8 +74,8 @@ jobs:
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         build-args: |
-          APP_VERSION=${{ github.ref_name }}
-          VITE_APP_VERSION=${{ github.ref_name }}
+          APP_VERSION=${{ github.event.inputs.version_tag || github.ref_name }}
+          VITE_APP_VERSION=${{ github.event.inputs.version_tag || github.ref_name }}
         platforms: linux/amd64,linux/arm64
         cache-from: type=gha
         cache-to: type=gha,mode=max

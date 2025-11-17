@@ -861,7 +861,7 @@ export default function ConnectionList() {
                 )}
 
                 {success && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {instances.filter(shouldShowInstance).map((inst) => {
                       const st = normalizeInstanceStatus(inst);
                       const isConnected = st === 'connected';
@@ -942,19 +942,19 @@ export default function ConnectionList() {
                 )}
 
                 {success && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {users.filter(shouldShowWuUser).map((u) => {
                       const st = normalizeWuStatus(u);
                       const isConnected = st === 'connected';
                       const isConnecting = st === 'connecting';
                       return (
-                        <div key={u.id} className="bg-white rounded-xl shadow border border-purple-200 p-4">
+                        <div key={u.id} className="bg-white rounded-xl shadow border border-purple-200 p-4 overflow-hidden">
                           <div className="flex items-center justify-between mb-2">
-                            <div>
+                            <div className="flex-1 min-w-0">
                               <div className="text-sm font-semibold text-gray-900 truncate">{u.name}</div>
                               <div className="text-xs text-gray-500 font-mono truncate">{u.token}</div>
                             </div>
-                            <div className={`text-xs px-2 py-1 rounded-full ${isConnected ? 'bg-green-100 text-green-700' : isConnecting ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{isConnected ? 'Conectada' : isConnecting ? 'Conectando' : 'Desconectada'}</div>
+                            <div className={`flex-shrink-0 text-xs px-2 py-1 rounded-full ${isConnected ? 'bg-green-100 text-green-700' : isConnecting ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{isConnected ? 'Conectada' : isConnecting ? 'Conectando' : 'Desconectada'}</div>
                           </div>
                           <div className="text-xs text-gray-600 mb-3">{u.jid || '-'}</div>
                           {!isConnected && (

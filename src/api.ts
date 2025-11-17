@@ -24,12 +24,16 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error?.response?.status === 401) {
-      try {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_user');
-      } catch {}
-      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      // Em página pública /qr não redireciona para login
+      const isPublicQR = typeof window !== 'undefined' && window.location.pathname.startsWith('/qr');
+      if (!isPublicQR) {
+        try {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('auth_user');
+        } catch {}
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);

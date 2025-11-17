@@ -10,6 +10,7 @@ import { Settings } from './pages/Settings';
 import { Login } from './pages/Login';
 import Unauthorized from './pages/Unauthorized';
 import { authService } from './services/authService';
+import PublicQR from './pages/PublicQR';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   if (!authService.isAuthenticated()) {
@@ -37,6 +38,8 @@ function App() {
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
+        {/* Rota pública para link temporário de QR */}
+        <Route path="/qr" element={<PublicQR />} />
         <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}> 
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<RequirePermission perm="dashboard"><Dashboard /></RequirePermission>} />

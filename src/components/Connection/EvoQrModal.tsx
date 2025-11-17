@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Server, EvolutionInstance } from '../../types';
+import { createQrLinkForEvolution } from '../../services/linkService';
 
 interface EvoQrModalProps {
   isOpen: boolean;
   onClose: () => void;
   server: Server;
   instance: EvolutionInstance;
+  showIcons?: boolean;
+  showCopyLink?: boolean;
 }
 
 type LogType = 'info' | 'success' | 'warning' | 'error';
 
-export function EvoQrModal({ isOpen, onClose, server, instance }: EvoQrModalProps) {
+export function EvoQrModal({ isOpen, onClose, server, instance, showIcons = true, showCopyLink = true }: EvoQrModalProps) {
   const [loading, setLoading] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [logs, setLogs] = useState<{ msg: string; type: LogType }[]>([]);
@@ -51,6 +54,23 @@ export function EvoQrModal({ isOpen, onClose, server, instance }: EvoQrModalProp
   const closeModal = () => {
     clearState();
     onClose();
+  };
+
+  const copyTempLink = async () => {
+    try {
+      setLoading(true);
+      log('🔗 Gerando link temporário (expira em 5 min)...', 'info');
+      const res = await createQrLinkForEvolution(server.id, instance.name);
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const fullUrl = `${origin}${res.path}`;
+      await navigator.clipboard.writeText(fullUrl);
+      log('✅ Link temporário copiado para a área de transferência', 'success');
+      log(`🕒 Validade: ${Math.round(res.expiresInSeconds/60)} minuto(s)`, 'info');
+    } catch (err: any) {
+      log('❌ Falha ao gerar/copiar link temporário', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const generateQRCode = async () => {
@@ -134,8 +154,8 @@ export function EvoQrModal({ isOpen, onClose, server, instance }: EvoQrModalProp
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 modal-backdrop flex items-center justify-center z-50 p-4" onClick={closeModal}>
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full qr-code-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black bg-opacity-50 modal-backdrop flex items-center justify-center z-50 p-4 overflow-y-auto" onClick={closeModal}>
+      <div className="bg-white rounded-2xl shadow-2xl w-[95vw] sm:w-full max-w-lg qr-code-modal max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
         <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-6 rounded-t-2xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
@@ -149,9 +169,9 @@ export function EvoQrModal({ isOpen, onClose, server, instance }: EvoQrModalProp
           </div>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <div className="text-center mb-6">
-            <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-6 min-h-[280px] flex items-center justify-center">
+            <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-4 sm:p-6 min-h-[220px] sm:min-h-[280px] flex items-center justify-center">
               {!imageSrc && !loading && (
                 <div className="text-gray-500">
                   <div className="text-4xl mb-3">▦</div>
@@ -159,7 +179,7 @@ export function EvoQrModal({ isOpen, onClose, server, instance }: EvoQrModalProp
                 </div>
               )}
               {imageSrc && (
-                <img src={imageSrc} alt="QR Code WhatsApp" className="max-w-[240px] max-h-[240px] rounded-lg shadow-lg" />
+                <img src={imageSrc} alt="QR Code WhatsApp" className="max-w-[70vw] sm:max-w-[240px] max-h-[70vw] sm:max-h-[240px] rounded-lg shadow-lg" />
               )}
               {loading && (
                 <div className="flex-col items-center">
@@ -170,17 +190,23 @@ export function EvoQrModal({ isOpen, onClose, server, instance }: EvoQrModalProp
             </div>
           </div>
 
-          <div className="flex space-x-3">
-            <button onClick={generateQRCode} disabled={loading} className="flex-1 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white px-4 py-3 rounded-lg font-medium transition flex items-center justify-center">
-              <span className="mr-2">🧾</span>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button onClick={generateQRCode} disabled={loading} className="w-full sm:flex-1 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white px-4 py-3 rounded-lg font-medium transition flex items-center justify-center">
+              {showIcons && <span className="mr-2">🧾</span>}
               Gerar QR Code
             </button>
-            <button onClick={closeModal} className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-lg font-medium transition">
+            {showCopyLink && (
+              <button onClick={copyTempLink} disabled={loading} className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white px-4 py-3 rounded-lg font-medium transition">
+                {showIcons && <span className="mr-2">🔗</span>}
+                Copiar Link (5 min)
+              </button>
+            )}
+            <button onClick={closeModal} className="w-full sm:w-auto bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-lg font-medium transition">
               Fechar
             </button>
           </div>
 
-          <div className={`mt-4 bg-gray-900 text-gray-100 rounded-lg p-4 font-mono text-sm max-h-32 overflow-y-auto ${logs.length === 0 ? 'hidden' : ''}`}>
+          <div className={`mt-4 bg-gray-900 text-gray-100 rounded-lg p-4 font-mono text-sm max-h-40 sm:max-h-32 overflow-y-auto ${logs.length === 0 ? 'hidden' : ''}`}>
             {logs.map((l, idx) => (
               <div key={idx} className={l.type === 'error' ? 'text-red-400' : l.type === 'warning' ? 'text-yellow-300' : l.type === 'success' ? 'text-green-300' : 'text-gray-200'}>
                 {l.msg}
