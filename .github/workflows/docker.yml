@@ -61,8 +61,12 @@ jobs:
         tags: |
           type=ref,event=branch
           type=ref,event=pr
+          # Gera tags diretamente a partir de tags Git (ex.: v1.6)
+          type=ref,event=tag
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
+          # Fallback para execução manual com workflow_dispatch
+          type=raw,value=${{ github.event.inputs.version_tag }},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version_tag != '' }}
           type=raw,value=latest,enable={{is_default_branch}}
 
     - name: Build and push Docker image
