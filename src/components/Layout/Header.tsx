@@ -1,8 +1,10 @@
-import { MessageSquare, Bell, User, Settings, LogOut } from 'lucide-react';
+import { Bell, User, Settings, LogOut } from 'lucide-react';
 import { authService } from '../../services/authService';
 import { userService } from '../../services/userService';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+
+const brandLogo = 'https://webferraogroup.com.br/logos/cenexazap.png';
 
 interface HeaderProps {
   title: string;
@@ -37,12 +39,9 @@ export function Header({ title }: HeaderProps) {
     <header className="bg-white border-b border-gray-200 px-3 sm:px-4 md:px-6 py-3 sm:py-4">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
         <div className="flex items-center space-x-3 sm:space-x-4">
-          <div className="flex items-center space-x-2">
-            <MessageSquare className="h-7 w-7 sm:h-8 sm:w-8 text-green-600" />
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">WhatsApp Manager</h1>
-          </div>
-          <div className="hidden sm:block text-sm text-gray-500 truncate max-w-[50vw]">
-            {title}
+          <div className="flex items-center space-x-3">
+            <img src={brandLogo} alt="Conexão Zap" className="h-8 w-auto" loading="lazy" />
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Conexão Zap</h1>
           </div>
         </div>
         
