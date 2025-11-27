@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
+import pkg from '../../package.json';
 
 const brandLogo = 'https://webferraogroup.com.br/logos/cenexazap.png';
 
@@ -10,14 +11,17 @@ export function Login() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [version, setVersion] = useState<string>((import.meta.env.VITE_APP_VERSION as string) || 'dev');
+  const [version, setVersion] = useState<string>((import.meta.env.VITE_APP_VERSION as string) || pkg.version || 'dev');
 
   useEffect(() => {
     // Busca versão do backend em tempo de execução
     fetch('/api/version')
       .then((res) => res.json())
       .then((data) => {
-        if (data?.version) setVersion(data.version);
+        // Só sobrescreve se vier algo útil (evitar "dev" do backend local)
+        if (data?.version && String(data.version).toLowerCase() !== 'dev') {
+          setVersion(data.version);
+        }
       })
       .catch(() => {
         // mantém fallback
