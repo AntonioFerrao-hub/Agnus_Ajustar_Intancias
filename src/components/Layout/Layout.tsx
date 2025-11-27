@@ -14,7 +14,7 @@ const pageTitle: Record<string, string> = {
 
 export function Layout() {
   const location = useLocation();
-  const title = pageTitle[location.pathname] || 'WhatsApp Manager';
+  const title = pageTitle[location.pathname] || 'Conexão ZAP';
 
   return (
     <div className="flex h-screen bg-gray-100">
