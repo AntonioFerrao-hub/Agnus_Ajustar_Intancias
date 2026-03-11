@@ -106,6 +106,14 @@ export default function ConnectionList() {
     success: boolean;
     error?: string;
   }>>({});
+  const [wuSessionStatusByKey, setWuSessionStatusByKey] = useState<Record<string, {
+    connected: boolean;
+    loggedIn: boolean;
+    jid?: string | null;
+    metadata?: Record<string, any> | null;
+    loading?: boolean;
+    error?: string | null;
+  }>>({});
   const [qrOnlineServer, setQrOnlineServer] = useState<Server | null>(null);
   const [qrOnlineInstance, setQrOnlineInstance] = useState<EvolutionInstance | null>(null);
   const [qrWuServer, setQrWuServer] = useState<Server | null>(null);
@@ -268,21 +276,34 @@ export default function ConnectionList() {
 
   // Normaliza o status vindo do WUZAPI para três estados finais
   const normalizeWuStatus = (
-    user: WuzapiUser
+    user: WuzapiUser,
+    sessionStatus?: {
+      connected: boolean;
+      loggedIn: boolean;
+    }
   ): 'connected' | 'connecting' | 'disconnected' => {
-    const connected = !!user.connected;
-    const logged = !!user.loggedIn;
+    const connected = sessionStatus ? !!sessionStatus.connected : !!user.connected;
+    const logged = sessionStatus ? !!sessionStatus.loggedIn : !!user.loggedIn;
     if (connected && logged) return 'connected';
     if (connected && !logged) return 'connecting';
     return 'disconnected';
   };
 
   const countsWu = useMemo(() => {
-    const allUsers: WuzapiUser[] = Object.values(wuUsersByServer)
-      .flatMap((s) => (s.success ? s.users || [] : []));
-    const connected = allUsers.filter((u) => normalizeWuStatus(u) === 'connected').length;
-    const connecting = allUsers.filter((u) => normalizeWuStatus(u) === 'connecting').length;
-    const disconnected = allUsers.filter((u) => normalizeWuStatus(u) === 'disconnected').length;
+    const allUsers = Object.values(wuUsersByServer)
+      .flatMap((s) => (s.success ? (s.users || []).map((u) => ({ serverId: s.server.id, user: u })) : []));
+    const connected = allUsers.filter(({ serverId, user }) => {
+      const key = `${serverId}::${user.token}`;
+      return normalizeWuStatus(user, wuSessionStatusByKey[key]) === 'connected';
+    }).length;
+    const connecting = allUsers.filter(({ serverId, user }) => {
+      const key = `${serverId}::${user.token}`;
+      return normalizeWuStatus(user, wuSessionStatusByKey[key]) === 'connecting';
+    }).length;
+    const disconnected = allUsers.filter(({ serverId, user }) => {
+      const key = `${serverId}::${user.token}`;
+      return normalizeWuStatus(user, wuSessionStatusByKey[key]) === 'disconnected';
+    }).length;
     return {
       servers: Object.keys(wuUsersByServer).length,
       instances: allUsers.length,
@@ -290,7 +311,7 @@ export default function ConnectionList() {
       disconnected,
       connecting,
     };
-  }, [wuUsersByServer]);
+  }, [wuUsersByServer, wuSessionStatusByKey]);
 
   const counts = currentFilterType === 'wuzapi' ? countsWu : countsEvo;
 
@@ -336,6 +357,7 @@ export default function ConnectionList() {
     try {
       if (!selectAllWu && selectedWuServerIds.length === 0) {
         setWuUsersByServer({});
+        setWuSessionStatusByKey({});
         return;
       }
       const wuServers = servers
@@ -361,6 +383,65 @@ export default function ConnectionList() {
       }
 
       setWuUsersByServer(results);
+
+      const statusMap: Record<string, {
+        connected: boolean;
+        loggedIn: boolean;
+        jid?: string | null;
+        metadata?: Record<string, any> | null;
+        loading?: boolean;
+        error?: string | null;
+      }> = {};
+
+      const checks = Object.values(results).flatMap(({ server, users, success }) =>
+        success ? users.map((user) => ({ server, user })) : []
+      );
+
+      for (const { server, user } of checks) {
+        const key = `${server.id}::${user.token}`;
+        statusMap[key] = {
+          connected: !!user.connected,
+          loggedIn: !!user.loggedIn,
+          jid: user.jid || null,
+          metadata: null,
+          loading: true,
+          error: null,
+        };
+      }
+      setWuSessionStatusByKey(statusMap);
+
+      await Promise.allSettled(
+        checks.map(async ({ server, user }) => {
+          const key = `${server.id}::${user.token}`;
+          try {
+            const session = await wuzApiService.getSessionStatusBackend(server.id, user.token);
+            setWuSessionStatusByKey((prev) => ({
+              ...prev,
+              [key]: {
+                connected: !!session.connected,
+                loggedIn: !!session.loggedIn,
+                jid: session.jid || user.jid || null,
+                metadata: session.metadata || null,
+                loading: false,
+                error: null,
+              },
+            }));
+          } catch (err: any) {
+            setWuSessionStatusByKey((prev) => ({
+              ...prev,
+              [key]: {
+                connected: !!user.connected,
+                loggedIn: !!user.loggedIn,
+                jid: user.jid || null,
+                metadata: null,
+                loading: false,
+                error: err?.response?.data?.message || err?.message || 'Falha ao consultar session/status',
+              },
+            }));
+          }
+        })
+      );
+
       setLastUpdate(new Date().toLocaleString('pt-BR'));
     } finally {
       setOnlineLoading(false);
@@ -465,13 +546,66 @@ export default function ConnectionList() {
     }
   };
 
-  const shouldShowWuUser = (user: WuzapiUser) => {
-    const st = normalizeWuStatus(user);
+  const shouldShowWuUser = (serverId: string, user: WuzapiUser) => {
+    const key = `${serverId}::${user.token}`;
+    const st = normalizeWuStatus(user, wuSessionStatusByKey[key]);
     if (onlineFilter === 'all') return true;
     if (onlineFilter === 'connected') return st === 'connected';
     if (onlineFilter === 'connecting') return st === 'connecting';
     if (onlineFilter === 'disconnected') return st === 'disconnected';
     return true;
+  };
+
+  const connectWuSession = async (server: Server, user: WuzapiUser) => {
+    const key = `${server.id}::${user.token}`;
+    setWuSessionStatusByKey((prev) => ({
+      ...prev,
+      [key]: {
+        ...(prev[key] || {
+          connected: !!user.connected,
+          loggedIn: !!user.loggedIn,
+          jid: user.jid || null,
+          metadata: null,
+        }),
+        loading: true,
+        error: null,
+      },
+    }));
+
+    try {
+      await wuzApiService.connectSessionBackend(server.id, user.token, {
+        subscribe: ['Message', 'ReadReceipt', 'ChatPresence'],
+        immediate: true,
+      });
+      const session = await wuzApiService.getSessionStatusBackend(server.id, user.token);
+      setWuSessionStatusByKey((prev) => ({
+        ...prev,
+        [key]: {
+          connected: !!session.connected,
+          loggedIn: !!session.loggedIn,
+          jid: session.jid || user.jid || null,
+          metadata: session.metadata || null,
+          loading: false,
+          error: null,
+        },
+      }));
+      await loadOnlineWuUsers();
+    } catch (e: any) {
+      setWuSessionStatusByKey((prev) => ({
+        ...prev,
+        [key]: {
+          ...(prev[key] || {
+            connected: !!user.connected,
+            loggedIn: !!user.loggedIn,
+            jid: user.jid || null,
+            metadata: null,
+          }),
+          loading: false,
+          error: e?.response?.data?.message || e?.message || 'Falha ao conectar sessão',
+        },
+      }));
+      setOnlineError(e?.response?.data?.message || e?.message || 'Erro ao conectar sessão WUZAPI');
+    }
   };
 
   const logoutInstance = async (server: Server, instanceName: string) => {
@@ -943,10 +1077,13 @@ export default function ConnectionList() {
 
                 {success && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {users.filter(shouldShowWuUser).map((u) => {
-                      const st = normalizeWuStatus(u);
+                    {users.filter((u) => shouldShowWuUser(server.id, u)).map((u) => {
+                      const key = `${server.id}::${u.token}`;
+                      const sessionStatus = wuSessionStatusByKey[key];
+                      const st = normalizeWuStatus(u, sessionStatus);
                       const isConnected = st === 'connected';
                       const isConnecting = st === 'connecting';
+                      const isLoadingSession = !!sessionStatus?.loading;
                       return (
                         <div key={u.id} className="bg-white rounded-xl shadow border border-purple-200 p-4 overflow-hidden">
                           <div className="flex items-center justify-between mb-2">
@@ -956,14 +1093,26 @@ export default function ConnectionList() {
                             </div>
                             <div className={`flex-shrink-0 text-xs px-2 py-1 rounded-full ${isConnected ? 'bg-green-100 text-green-700' : isConnecting ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{isConnected ? 'Conectada' : isConnecting ? 'Conectando' : 'Desconectada'}</div>
                           </div>
-                          <div className="text-xs text-gray-600 mb-3">{u.jid || '-'}</div>
+                          <div className="text-xs text-gray-600 mb-3">{sessionStatus?.jid || u.jid || '-'}</div>
                           {!isConnected && (
-                            <button
-                              onClick={() => openWuQRModal(server, u)}
-                              className="mt-1 w-full bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-medium"
-                            >
-                              <div className="flex items-center justify-center"><QrCode className="h-4 w-4 mr-2" /> Gerar QR Code</div>
-                            </button>
+                            <>
+                              <button
+                                onClick={() => connectWuSession(server, u)}
+                                disabled={isLoadingSession}
+                                className="mt-1 w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-medium"
+                              >
+                                <div className="flex items-center justify-center">
+                                  {isLoadingSession ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Zap className="h-4 w-4 mr-2" />}
+                                  {isLoadingSession ? 'Conectando...' : 'Conectar Sessão'}
+                                </div>
+                              </button>
+                              <button
+                                onClick={() => openWuQRModal(server, u)}
+                                className="mt-2 w-full bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-medium"
+                              >
+                                <div className="flex items-center justify-center"><QrCode className="h-4 w-4 mr-2" /> Gerar QR Code</div>
+                              </button>
+                            </>
                           )}
                         </div>
                       );

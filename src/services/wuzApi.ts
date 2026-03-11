@@ -2,6 +2,20 @@ import axios from 'axios';
 import api from '../api';
 import { WuzapiUser, WuzapiUsersResponse } from '../types';
 
+interface WuzSessionConnectPayload {
+  subscribe?: string[];
+  immediate?: boolean;
+  Subscribe?: string[];
+  Immediate?: boolean;
+}
+
+interface WuzSessionStatus {
+  connected: boolean;
+  loggedIn: boolean;
+  jid?: string | null;
+  metadata?: Record<string, any> | null;
+}
+
 class WuzApiService {
   private baseURL: string = '';
   private apiKey: string = '';
@@ -152,10 +166,7 @@ class WuzApiService {
   }
 
   // Connect user session (WU /session/connect)
-  async connectSession(token: string, payload?: {
-    Subscribe?: string[];
-    Immediate?: boolean;
-  }): Promise<any> {
+  async connectSession(token: string, payload?: WuzSessionConnectPayload): Promise<any> {
     if (!this.baseURL || !this.apiKey) {
       throw new Error('WUZAPI service not configured. Call setConfig() first.');
     }
@@ -169,7 +180,7 @@ class WuzApiService {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
-        data: payload || { Subscribe: ['Message', 'ChatPresence'], Immediate: true },
+        data: payload || { subscribe: ['Message', 'ReadReceipt', 'ChatPresence'], immediate: true },
         timeout: 30000,
       });
       return response.data;
@@ -186,16 +197,24 @@ class WuzApiService {
   }
 
   // Connect via backend proxy to avoid CORS issues
-  async connectSessionBackend(serverId: string, token: string, payload?: {
-    Subscribe?: string[];
-    Immediate?: boolean;
-  }): Promise<any> {
+  async connectSessionBackend(serverId: string, token: string, payload?: WuzSessionConnectPayload): Promise<any> {
     const response = await api.post('/wuz/session/connect', {
       serverId,
       token,
-      payload: payload || { Subscribe: ['Message', 'ChatPresence'], Immediate: true },
+      payload: payload || { subscribe: ['Message', 'ReadReceipt', 'ChatPresence'], immediate: true },
     });
     return response.data;
+  }
+
+  async getSessionStatusBackend(serverId: string, token: string): Promise<WuzSessionStatus> {
+    const response = await api.post('/wuz/session/status', { serverId, token });
+    const data = response?.data?.data || {};
+    return {
+      connected: !!data.connected,
+      loggedIn: !!data.loggedIn,
+      jid: data.jid || null,
+      metadata: data.metadata || null,
+    };
   }
 
   // Get QR Code via backend proxy to avoid CORS; supports `qr` key

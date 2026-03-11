@@ -11,6 +11,7 @@ import { Login } from './pages/Login';
 import Unauthorized from './pages/Unauthorized';
 import { authService } from './services/authService';
 import PublicQR from './pages/PublicQR';
+import ValidateWhatsApp from './pages/ValidateWhatsApp';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   if (!authService.isAuthenticated()) {
@@ -48,6 +49,7 @@ function App() {
           <Route path="webhooks" element={<RequirePermission perm="webhooks"><Webhooks /></RequirePermission>} />
           <Route path="logs" element={<RequirePermission perm="logs"><Logs /></RequirePermission>} />
           <Route path="monitoring" element={<RequirePermission perm="monitoring"><Monitoring /></RequirePermission>} />
+          <Route path="validate-whatsapp" element={<RequirePermission perm="validator"><ValidateWhatsApp /></RequirePermission>} />
           <Route path="settings" element={<RequirePermission perm="settings"><Settings /></RequirePermission>} />
           <Route path="unauthorized" element={<Unauthorized />} />
         </Route>

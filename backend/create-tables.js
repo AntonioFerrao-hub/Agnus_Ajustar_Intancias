@@ -69,6 +69,24 @@ const createTables = async () => {
       );
     `);
 
+    // Tabela de clientes para validação posterior (carregamento direto da lista)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS clientes_validacao (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        mobile VARCHAR(64) NOT NULL,
+        valor VARCHAR(64) NULL,
+        CPF_Disparo VARCHAR(64) NULL,
+        -- Campos obrigatórios para validação posterior (mantidos com padrão/NULL)
+        status VARCHAR(32) NULL,
+        whatsapp_existe TINYINT(1) NULL,
+        validado_em DATETIME NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_mobile (mobile)
+      );
+    `);
+
     // Ajustes para bases já existentes: garantir coluna passwordHash e role simplificado
     try {
       await connection.query(`ALTER TABLE users ADD COLUMN passwordHash VARCHAR(255)`);

@@ -33,7 +33,7 @@ router.post('/session/connect', async (req, res) => {
       `${base}/api/session/connect`,
     ];
 
-    const defaultPayload = payload || { Subscribe: ['Message', 'ChatPresence'], Immediate: true };
+    const defaultPayload = payload || { subscribe: ['Message', 'ReadReceipt', 'ChatPresence'], immediate: true };
 
     const hasBearer = /^bearer\s/i.test(server.apiKey);
     const authHeader = hasBearer ? server.apiKey : `Bearer ${server.apiKey}`;
@@ -91,6 +91,123 @@ router.post('/session/connect', async (req, res) => {
   } catch (error) {
     const status = error?.response?.status || 500;
     let message = error?.response?.data?.message || error.message || 'Erro ao conectar sessão WUZAPI';
+    return res.status(status).json({ success: false, status, message, data: error?.response?.data });
+  }
+});
+
+router.post('/session/status', async (req, res) => {
+  const { serverId, token } = req.body || {};
+  if (!serverId || !token) {
+    return res.status(400).json({ success: false, message: 'serverId e token são obrigatórios' });
+  }
+
+  try {
+    const [[server]] = await pool.query('SELECT * FROM servers WHERE id = ?', [serverId]);
+    if (!server) {
+      return res.status(404).json({ success: false, message: 'Servidor não encontrado' });
+    }
+    if (String(server.type) !== 'wuzapi') {
+      return res.status(400).json({ success: false, message: 'Servidor não é do tipo WUZAPI' });
+    }
+
+    const normalized = String(server.url).trim().replace(/\/+$/, '');
+    const base = normalized.replace(/\/admin$/i, '');
+    const variants = [
+      `${base}/session/status`,
+      `${normalized}/admin/session/status`,
+      `${base}/api/session/status`,
+    ];
+    const fallbackUsersStatus = `${base}/users/${token}/status`;
+
+    const hasBearer = /^bearer\s/i.test(server.apiKey);
+    const authHeader = hasBearer ? server.apiKey : `Bearer ${server.apiKey}`;
+
+    for (const url of variants) {
+      try {
+        const resp = await axios.get(url, {
+          headers: { token, Accept: 'application/json' },
+          timeout: 15000,
+          httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+        });
+        const raw = resp.data;
+        const data = raw?.data && typeof raw.data === 'object' ? raw.data : raw;
+        return res.json({
+          success: true,
+          data: {
+            connected: !!data?.connected,
+            loggedIn: !!data?.loggedIn,
+            jid: data?.jid || null,
+            metadata: data?.metadata || null,
+          },
+          raw,
+          endpoint: url,
+          mode: 'token',
+        });
+      } catch (err1) {
+        const status1 = err1?.response?.status;
+        try {
+          const respAuth = await axios.get(url, {
+            headers: { token, Authorization: authHeader, Accept: 'application/json' },
+            timeout: 15000,
+            httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+          });
+          const raw = respAuth.data;
+          const data = raw?.data && typeof raw.data === 'object' ? raw.data : raw;
+          return res.json({
+            success: true,
+            data: {
+              connected: !!data?.connected,
+              loggedIn: !!data?.loggedIn,
+              jid: data?.jid || null,
+              metadata: data?.metadata || null,
+            },
+            raw,
+            endpoint: url,
+            mode: 'token+auth',
+          });
+        } catch (err2) {
+          const code = err2?.response?.status || status1 || 500;
+          if (code === 404) {
+            continue;
+          }
+          const message = err2?.response?.data?.message || err2?.message || 'Erro ao consultar status da sessão WUZAPI';
+          return res.status(code).json({ success: false, status: code, message, endpoint: url, data: err2?.response?.data });
+        }
+      }
+    }
+
+    try {
+      const respFallback = await axios.get(fallbackUsersStatus, {
+        headers: { Authorization: authHeader, Accept: 'application/json' },
+        timeout: 15000,
+        httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+      });
+      const raw = respFallback.data;
+      const data = raw?.data && typeof raw.data === 'object' ? raw.data : raw;
+      return res.json({
+        success: true,
+        data: {
+          connected: !!data?.connected,
+          loggedIn: !!data?.loggedIn,
+          jid: data?.jid || null,
+          metadata: data?.metadata || null,
+        },
+        raw,
+        endpoint: fallbackUsersStatus,
+        mode: 'auth-only',
+      });
+    } catch (fallbackErr) {
+      return res.status(fallbackErr?.response?.status || 404).json({
+        success: false,
+        status: fallbackErr?.response?.status || 404,
+        message: fallbackErr?.response?.data?.message || fallbackErr?.message || 'Endpoint /session/status não encontrado nas variações testadas',
+        tried: [...variants, fallbackUsersStatus],
+        data: fallbackErr?.response?.data,
+      });
+    }
+  } catch (error) {
+    const status = error?.response?.status || 500;
+    const message = error?.response?.data?.message || error.message || 'Erro ao consultar status da sessão WUZAPI';
     return res.status(status).json({ success: false, status, message, data: error?.response?.data });
   }
 });

@@ -9,6 +9,7 @@ const pageTitle: Record<string, string> = {
   '/webhooks': 'Configurar Webhooks',
   '/logs': 'Logs do Sistema',
   '/monitoring': 'Monitoramento',
+  '/validate-whatsapp': 'Validar WhatsApp',
   '/settings': 'Configurações',
 };
 

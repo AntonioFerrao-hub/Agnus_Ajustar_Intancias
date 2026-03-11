@@ -2,8 +2,11 @@ import axios, { AxiosRequestHeaders } from 'axios';
 import { Server, ServerFormData } from './types';
 
 // Permite definir a base de API via env em tempo de build (ex.: preview/produção)
-// Fallback para '/api' em desenvolvimento com proxy do Vite.
-const apiBaseURL = (import.meta as any)?.env?.VITE_API_BASE_URL || '/api';
+// Em modo preview (vite preview), não há proxy; aponta direto para backend local.
+// Em dev (vite), usa '/api' que é proxied pelo Vite.
+const isLocalPreview = (import.meta as any)?.env?.PROD && typeof window !== 'undefined' && window.location.hostname === 'localhost';
+const apiBaseURL = (import.meta as any)?.env?.VITE_API_BASE_URL
+  || (isLocalPreview ? 'http://localhost:3001/api' : '/api');
 const api = axios.create({
   baseURL: apiBaseURL,
 });

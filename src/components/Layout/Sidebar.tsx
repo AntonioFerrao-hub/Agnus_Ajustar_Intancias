@@ -21,6 +21,7 @@ const navigation = [
   { key: 'logs', name: 'Logs', href: '/logs', icon: FileText },
   { key: 'monitoring', name: 'Monitoramento', href: '/monitoring', icon: Activity },
   { key: 'settings', name: 'Configurações', href: '/settings', icon: Settings },
+  { key: 'validator', name: 'Validar WhatsApp', href: '/validate-whatsapp', icon: Smartphone },
 ];
 
 export function Sidebar() {

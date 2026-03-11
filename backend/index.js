@@ -10,6 +10,8 @@ const authRouter = require('./routes/auth');
 const webhooksRouter = require('./routes/webhooks');
 const wuzRouter = require('./routes/wuzapi');
 const linksRouter = require('./routes/links');
+const validationRouter = require('./routes/validation');
+const importRouter = require('./routes/import');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -26,6 +28,8 @@ app.use('/api/auth', authRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/wuz', wuzRouter);
 app.use('/api/links', linksRouter);
+app.use('/api/validate', validationRouter);
+app.use('/api/import', importRouter);
 
 // Expor versão da aplicação em tempo de execução
 app.get('/api/version', (req, res) => {
